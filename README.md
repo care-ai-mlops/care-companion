@@ -17,3 +17,15 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 
 ## System Design
 ![Image](https://github.com/Nightshade14/care-companion/blob/main/Images/systemdesign.png)
+
+### Summary of Infrastructure Requirements
+| **Requirement**      | **How many / When**                      | **Justification**                                                                                                                                     |
+|----------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `m1.medium`          | 1 instance, running 24/7                | Used for **backend tasks** such as **PostgreSQL database**, **logging**, and light processing that doesn't require heavy GPU acceleration. This is a lightweight node to handle non-GPU tasks. |
+| `gpu_v100`           | 4-hour block, twice a week               | **High-performance model training** for deep learning tasks (e.g., CNN, Vision Transformers). The **V100** provides excellent compute power for training large models on complex datasets. |
+| `gpu_a30`            | 4-hour block, 3-4 times a week for inference | **Low-latency inference** for real-time AI predictions (fracture detection, pneumonia, TB). The **A30** provides efficient inference for production with cost-effectiveness. It can handle large models and datasets. |
+| **Floating IPs**     | 1-2 for public access to inference model | To provide access to the **AI-powered inference service** (e.g., API for predictions) via a **public-facing IP** for external users (doctors, hospitals, etc.). |
+| **Persistent Storage**| 1TB SSD (for model, dataset, and logs)  | To store models, large datasets, and logs used in training and inference. The SSD ensures **fast read/write** speeds necessary for processing large medical images. |
+
+
+### Detailed Design Plan
