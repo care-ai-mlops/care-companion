@@ -16,4 +16,4 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 | Mamidala Sai Sandeep    |                 | [Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Sandeep2229)  |
 
 ## System Design
-[Image](https://github.com/Nightshade14/care-companion/blob/main/Images/systemImage.drawio.png)
+![Image](https://github.com/Nightshade14/care-companion/blob/main/Images/systemImage.drawio.png)
