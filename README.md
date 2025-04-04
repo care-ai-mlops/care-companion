@@ -29,3 +29,49 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 
 
 ### Detailed Design Plan
+
+#### Model training
+##### Strategy and Justification
+###### Model-1 (Fracture Detection CNN):
+`Model Choice`: We will start with pre-trained CNN backbones like DenseNet-121 (highest AUC on MURA dataset), with comparative testing of MobileNet (latency-optimized) and InceptionV3 (spatial feature strength) and fine-tune them on our fracture detection dataset. We will evaluate multiple architectures to identify the one that balances accuracy, latency, and model size.<br/>
+`Training`: Fine-tune on MURA (40k X-rays) via transfer learning. Retrain weekly with 500–1k radiologist corrections using Ray Train on gpu_v100.
+
+###### Model-2 (TB/Pneumonia CNN):
+`Model Choice`: Similarly, for TB or pneumonia detection, we will fine-tune pre-trained models using the same approach but with a different dataset.<br/>
+`Training`: Initialize with NIH ChestX-ray14 weights. 
+
+###### Model-3 (LLM for Notes):
+`Model Choice`: We will use a Llama-2-7B (open-source, locally deployed) fine-tuned with LoRA to generate patient-friendly notes. This model will require minimal fine-tuning, as it has already been trained on large amounts of textual data. <br/>
+`Training`: Generate 5k synthetic reports (radiology notes ↔ patient summaries) for fine-tuning
+
+`CNNs are highly suitable for image classification tasks because they are designed to automatically learn spatial hierarchies in data. This makes them especially effective for tasks like detecting fractures or identifying abnormalities in X-ray or CT images.` 
+<br>
+`Using an LLM like Llama allows us to generate human-readable summaries from complex medical terminology, making the information accessible to patients. Llama and other open-source LLMs come pretrained on vast amounts of textual data, reducing the amount of fine-tuning required for the specific task of converting technical notes to layman's terms.`
+
+###### Workflow Integration:
+`Feedback Loop`: Corrections from doctors update PostgreSQL → trigger retraining for CNNs. <br>
+`Deployment`: CI/CD (GitHub Actions) promotes models to gpu_a30 (CNNs) and m1.medium (LLM).
+
+
+#### Training Platforms
+
+We will use MLflow for tracking our model training experiments on Chameleon Cloud. MLflow will serve as our centralized experiment tracking server, where we will log all experiment details, including hyperparameters, model architecture, metrics, and performance. 
+ During training, we will log key details such as:
+<ul> 
+ <li>Hyperparameters (learning rate, batch size, model architecture)</li>
+ <li>Performance metrics (accuracy, precision, recall, F1-score)</li>
+ <li>Training and validation loss</li>
+ <li>Model checkpoints (for retraining)</li>  
+</ul>
+
+To efficiently manage and scale our training jobs, we will use a Ray cluster
+<ul><li>Parallelized training of models like DenseNet-121, InceptionV3, and MobileNet for fracture detection and TB/pneumonia detection. </li>
+  <li>Hyperparameter tuning using Ray Tune, enabling us to experiment with different hyperparameter configurations to find the optimal settings for each model.</li>
+</ul>
+
+`Difficulty Points` Attempting from Unit-4 & Unit-5:
+<ul> Using Ray Train </ul>
+
+
+
+
