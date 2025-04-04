@@ -165,4 +165,17 @@ For real-time inference, we will set up a streaming pipeline using Kafka to hand
 `Difficulty Points` Attempting from Unit-6 & Unit-7:
 <ul> <li> We paln to implement an interactive and comprehensive data dashboard </li></ul>
 
+#### Continuous X pipeline<br>
+##### Infrastructure-as-code: 
+Terraform will be used to define, provision, and manage the entire cloud infrastructure, including servers, load balancers, storage, and networking, in a version-controlled manner. The infrastructure configuration will be stored in Git and maintained using version control.
+Terraform enables reproducibility and consistency, allowing us to automate the provisioning and management of infrastructure, reducing human errors and ClickOps. It allows for easy rollback and updates, which is critical when updating cloud infrastructure.<br>
+##### Cloud-native:
+Infrastructure configurations will be defined in version-controlled Git repositories using Infrastructure-as-Code (IaC) tools such as Terraform. 
+The project will be broken down into small, independently deployable microservices. These microservices will be responsible for distinct tasks, such as X-ray fracture detection, TB/pneumonia detection, and patient notes generation. Each microservice will communicate with the others via APIs, typically RESTful APIs.
+ All services, including machine learning models and associated APIs, will be containerized using Docker. This will enable the services to be packaged with their dependencies and run consistently across different environments. <br>
+##### CI/CD and continuous training:
+We will set up a CI/CD pipeline to automate the entire process of training, testing, and deploying machine learning models. The pipeline will be integrated with GitHub Actions to automatically trigger workflows for each phase whenever there is a change in the codebase or a new dataset becomes available.
+Using GitHub Actions ensures that every change in the codebase or dataset will automatically trigger the appropriate pipeline, ensuring that no manual intervention is needed.<br>
+##### Staged deployment:
+By using staging, canary, and production environments, we minimize risk by thoroughly testing the model at each stage, ensure scalability and reliability in live settings, and maintain high performance throughout the deployment lifecycle.
 
