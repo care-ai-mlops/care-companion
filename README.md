@@ -16,7 +16,25 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 | Mamidala Sai Sandeep    | Model Training |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Sandeep2229)|
 
 ## System Design
-![Image](https://github.com/Nightshade14/care-companion/blob/main/Images/systemdesign.png)
+![Image](Images/systemdesign.png)
+
+
+## Summary of outside materials
+
+<!-- In a table, a row for each dataset, foundation model. 
+Name of data/model, conditions under which it was created (ideally with links/references), 
+conditions under which it may be used.-->
+
+| Entity | How it was created | Conditions of use |
+| :-- | :-- | :-- |
+| **Dataset - 1: Wrist X-Ray images** | The dataset is sourced from Kaggle. It contains X-Ray images of wrists. The class distribution of X-rays is equal between fractured and normal non-fractured wrists. The dataset has X-ray images in PA, oblique and lateral projections and for left and right wrists making it robust and covers all major cases. The dataset's balanced nature will mitigate potential bias in model training, while its variety of projection angles will enhance the model's generalizability to real-world clinical scenarios where X-rays may be captured from different orientations. The dataset consists of 12.7K images which totals in size of 7.82 GB. The dataset link is as follows: https://www.kaggle.com/datasets/sirajbunery/wrist-xray-dataset-balanced-data | Open-source<br><br>To train fracture detection models. |
+| **Dataset - 2: Chest X-Ray images** | Data Sources<br>OCT Dataset (Kermany): 4,273 pneumonia-infected and 1,583 normal X-rays.<br>RSNA CXR Dataset: 3,500 TB-positive X-rays.<br>NIAID TB Dataset: 3,499 TB-positive X-rays from seven countries.<br>NLM Dataset:<br>Montgomery: 138 X-rays (57 TB, 80 normal).<br>Shenzhen: 662 X-rays (336 TB, 326 normal).<br>Belarus Dataset: 304 TB-infected X-rays (512×512 resolution)<br>Non-X-ray Dataset: 1,357 images of objects (e.g., animals, bikes) from Pavan Sanagapati.<br>Sources<br>Kermany DS, Goldbaum M, Cai W, et al. Identifying medical diagnoses and treatable diseases by image-based deep learning. Cell. 2018;172(5):1122-1131.e9. doi:10.1016/j.cell.2018.02.010<br>Radiological Society of North America. Published August 27,2018.Accessed December 10.2024. https://www.kaggle.com/competitions/rsna-pneumonia-detection-challenge<br>National Institute of Allergy and Infectious Diseases (NIAID). NIAID TB Portals Dataset. Accessed February 10, 2024. Available at: https://tbportals.niaid.nih.gov/download-data<br>Jaeger S, Candemir S, Antani S, Wáng YX, Lu PX, Thoma G. Two public chest X-ray datasets for computer-aided screening of pulmonary diseases. Quant Imaging Med Surg. 2014;4(6):475-477. doi:10.3978/j.issn.2223-4292.2014.11.20<br>Gabrielian A, Engle E, Harris M, et al. Comparative analysis of genomic variability for drug-resistant strains of Mycobacterium tuberculosis: The special case of Belarus. Infect Genet Evol. 2020;78:104137. doi:10.1016/j.meegid.2019.104137<br>Sanagapati P, Images Dataset. Kaggle. Published 7 years ago. Accessed December3,2024. https://www.kaggle.com/datasets/pavansanagapati/images-dataset/data<br><br>The dataset has 15.3K images and is of size 7.02 GB.<br><br>Dataset link: https://www.kaggle.com/datasets/rifatulmajumder23/combined-unknown-pneumonia-and-tuberculosis | Open-source<br><br>To train Pneumonia and Tuberculosis detection models. |
+| **Model - 1: CNN** | We plan to experiment with multiple pre-trained CNN backbone architectures like DenseNet-121, InceptionV3/V2, MobileNet etc for fracture detection. The transfer learning approach is the most efficient way of training the models for our use-case. | Used to detect bone fracture in the X-Ray images uploaded by Radiology technician |
+| **Model - 2: CNN** | Similarly for Tuberculosis or Pneumonia detection, we plan to use Transfer Learning technique and fine-tune pre-trained models to make predictions. | Used to detect Tuberculosis and Pneumonia in the X-Ray images uploaded by Radiology technician |
+| **Model-3: LLM** | We plan to use a self-hosted open-source LLM such as Llama for the notes generation part and/or patient care review sentiment classification. If we use Llama, it reduces the work of fine-tuning as they might have already been trained on such data. | Open-source<br><br>Used to generate patient friendly clinical notes and/or patient care review sentiment classification. |
+
+
+
 
 ### Summary of Infrastructure Requirements
 | **Requirement**      | **How many / When**                      | **Justification**                                                                                                                                     |
