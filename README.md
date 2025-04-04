@@ -72,6 +72,47 @@ To efficiently manage and scale our training jobs, we will use a Ray cluster
 `Difficulty Points` Attempting from Unit-4 & Unit-5:
 <ul> Using Ray Train </ul>
 
+#### Model serving 
+##### API Endpoint: 
+We will wrap our models in a FastAPI endpoint for real-time inference (e.g., fracture detection, pneumonia, TB). FastAPI is chosen for its speed and async capabilities, which are crucial for handling real-time inference requests with minimal latency (1-2 seconds per image). 
+<ul>
+ <li>Size: Models will range from 100MB to 200MB (CNNs for image detection).</li>
+ <li>Throughput: 50-100 images per minute for batch inference.</li>
+ <li>Latency: 1-2 seconds per image for online inference.</li>
+ <li>Concurrency: Support 50-100 concurrent requests for multiple users (doctors)</li>
+</ul>
+
+#### Model Optimizations:
+##### Quantization: 
+<ul>
+ <li> We’ll explore reducing model precision (16-bit or 8-bit) for faster inference with minimal accuracy loss (only for LLM).</li>
+ <li> TensorRT: Use optimized operators for NVIDIA GPUs to accelerate inference.</li> 
+</ul>
+TensorRT and quantization are linked to the model serving process for efficient inference as Medical imaging models need to be accurate while being light enough to serve in real-time.
+
+#### System Optimizations:
+##### Load Balancing: 
+Distribute inference requests across multiple servers to ensure scalability.
+##### GPU Utilization: 
+Use Ray for job distribution across GPUs to maximize resource use.
+
+Ray and load balancing ensure that we can scale concurrently without compromising latency. With multiple doctors accessing the system simultaneously, it is essential to distribute load and optimize GPU utilization.
 
 
+#### Evaluation and Monitoring
+##### Offline Evaluation: 
+Immediately after model training, we will perform offline evaluations focusing on the recall metric to prioritize minimizing false negatives, which is critical for healthcare applications. We will evaluate models on fracture detection, pneumonia, and tuberculosis detection using 10,000 and 8,000 images, respectively. </br>
+All evaluation metrics, including recall, will be logged using the MLFlow metric logger for tracking, comparison, and visualization of results across different models.
+Models meeting the required recall threshold will be automatically registered in the MLFlow model registry for deployment. If performance is inadequate, the model will be flagged for retraining.
+
+##### Load Testing: 
+We will use FastAPI to simulate multiple concurrent inference requests. We will deploy the model to the staging environment and use FastAPI’s async capabilities to handle 50-100 concurrent requests. The system’s performance will be evaluated by measuring latency, throughput, and resource usage (CPU/GPU/memory) during both batch and online inference tasks.
+
+##### Canary testing & Continuous feedback: 
+In canary testing, the model will be deployed to a small subset of real users, allowing us to evaluate its performance in a live environment. The continuous feedback loop will collect doctor feedback on predictions, using this data to retrain the model periodically and improve its accuracy over time.
+
+`Difficulty Points` Attempting from Unit-6 & Unit-7:
+<ul> <li> We will build a dashboardfor the engineers to be able to look into the data drift during training and post-training to ensure that the model is working</li> 
+ <li>We will also monitor the model through the same dashboard to check the model health. </li>
+</ul>
 
