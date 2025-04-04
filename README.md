@@ -16,7 +16,7 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 | Mamidala Sai Sandeep    | Model Training |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Sandeep2229)|
 
 ## System Design
-![Image](Images/systemdesign.png)
+![Image](images/systemdesign.png)
 
 
 ## Summary of outside materials
@@ -130,7 +130,7 @@ We will use FastAPI to simulate multiple concurrent inference requests. We will 
 In canary testing, the model will be deployed to a small subset of real users, allowing us to evaluate its performance in a live environment. The continuous feedback loop will collect doctor feedback on predictions, using this data to retrain the model periodically and improve its accuracy over time.
 
 `Difficulty Points` Attempting from Unit-6 & Unit-7:
-<ul> <li> We will build a dashboardfor the engineers to be able to look into the data drift during training and post-training to ensure that the model is working</li> 
+<ul> <li> We will build a dashboard for the engineers to be able to look into the data drift during re-training to ensure that the model is working as expected.</li> 
  <li>We will also monitor the model through the same dashboard to check the model health. </li>
 </ul>
 
@@ -163,7 +163,7 @@ To maintain data integrity and ensure reproducibility, we will implement data ve
 For real-time inference, we will set up a streaming pipeline using Kafka to handle live data (incoming X-ray images) for processing, cleaning, and inference. We will also simulate real-time data for testing and training purposes.
 
 `Difficulty Points` Attempting from Unit-6 & Unit-7:
-<ul> <li> We paln to implement an interactive and comprehensive data dashboard </li></ul>
+<ul> <li> We plan to implement an interactive and comprehensive data dashboard </li></ul>
 
 #### Continuous X pipeline<br>
 ##### Infrastructure-as-code: 
