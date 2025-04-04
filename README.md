@@ -10,10 +10,10 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 ## Contributors
 | Name                   | Responsible For | Link to their commits in this repo                                                       |
 |------------------------|-----------------|------------------------------------------------------------------------------------------|
-| Satyam Chatrola         |                 | [Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Nightshade14) |
-| Akash Peddaputha        |                 | [Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=akashp04)    |
-| Yash Patel              |                 | [Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=YashPatel166) |
-| Mamidala Sai Sandeep    |                 | [Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Sandeep2229)  |
+| Satyam Chatrola         | Model Serving and Monitoring |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Nightshade14) |
+| Akash Peddaputha        | Data Pipeline |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=akashp04)|
+| Yash Patel              | Continuous X Pipeline |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=YashPatel166)|
+| Mamidala Sai Sandeep    | Model Training |[Commits](https://github.com/Nightshade14/care-companion/commits/main/?author=Sandeep2229)|
 
 ## System Design
 ![Image](https://github.com/Nightshade14/care-companion/blob/main/Images/systemdesign.png)
