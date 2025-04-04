@@ -134,3 +134,35 @@ In canary testing, the model will be deployed to a small subset of real users, a
  <li>We will also monitor the model through the same dashboard to check the model health. </li>
 </ul>
 
+#### Data Pipeline 
+
+##### Persistent Storage in Docker:
+Data (X-rays, CT scans, and model artifacts) will be stored in Docker volumes for scalable and isolated storage.
+PostgreSQL for patient, doctor, and interaction data will run in a Docker container, with data stored in persistent volumes to ensure durability and ease of management. This database will manage:
+<ul>
+ <li><strong>Patient Information</strong>: ID, name, age, medical history.</li>
+ <li><strong>Doctor Information</strong>: ID, name, specialties, and consultation records.</li>
+ <li><strong>Interactions</strong>: Records of patient visits and model predictions.</li>
+ <li><strong>Training artifacts</strong>, models, and container images will be similarly managed in Docker to ensure portability and flexibility.</li>
+</ul>
+
+
+##### Data Pipelines
+Transform data by applying feature engineering for structured data and validation for both. <br>
+###### Clean and preprocess both structured and unstructured data:
+<ul>
+ <li><strong>Data Cleaning</strong>: Remove missing values from structured data and preprocess images (resize, normalize, augment).</li>
+ <li><strong>Feature Engineering</strong>: Derive features like age from patient data, ensure image-label mappings are correct.</li>
+ <li><strong>Data Validation</strong>: Ensure structured data conforms to schemas, and image formats are valid.</li>
+</ul>
+
+Load data into PostgreSQL for structured data and S3 for unstructured data. <br>
+To maintain data integrity and ensure reproducibility, we will implement data versioning using MLFlow for tracking datasets used in training and re-training.<br>
+
+###### Online Data Pipeline: 
+For real-time inference, we will set up a streaming pipeline using Kafka to handle live data (incoming X-ray images) for processing, cleaning, and inference. We will also simulate real-time data for testing and training purposes.
+
+`Difficulty Points` Attempting from Unit-6 & Unit-7:
+<ul> <li> We paln to implement an interactive and comprehensive data dashboard </li></ul>
+
+
