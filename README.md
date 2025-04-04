@@ -33,8 +33,8 @@ conditions under which it may be used.-->
 | **Model - 2: CNN** | Similarly for Tuberculosis or Pneumonia detection, we plan to use Transfer Learning technique and fine-tune pre-trained models to make predictions. | Used to detect Tuberculosis and Pneumonia in the X-Ray images uploaded by Radiology technician |
 | **Model-3: LLM** | We plan to use a self-hosted open-source LLM such as Llama for the notes generation part and/or patient care review sentiment classification. If we use Llama, it reduces the work of fine-tuning as they might have already been trained on such data. | Open-source<br><br>Used to generate patient friendly clinical notes and/or patient care review sentiment classification. |
 
-
-
+`Difficulty Points` Attempting from Unit-1:
+<ul> <li>Using Multiple Models</li> </ul>
 
 ### Summary of Infrastructure Requirements
 | **Requirement**      | **How many / When**                      | **Justification**                                                                                                                                     |
@@ -88,7 +88,7 @@ To efficiently manage and scale our training jobs, we will use a Ray cluster
 </ul>
 
 `Difficulty Points` Attempting from Unit-4 & Unit-5:
-<ul> Using Ray Train </ul>
+<ul> <li>Using ray Train </li> </ul>
 
 #### Model serving 
 ##### API Endpoint: 
