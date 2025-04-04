@@ -156,7 +156,7 @@ Transform data by applying feature engineering for structured data and validatio
  <li><strong>Data Validation</strong>: Ensure structured data conforms to schemas, and image formats are valid.</li>
 </ul>
 
-Load data into PostgreSQL for structured data and S3 for unstructured data. <br>
+Load data into PostgreSQL for structured data <br>
 To maintain data integrity and ensure reproducibility, we will implement data versioning using MLFlow for tracking datasets used in training and re-training.<br>
 
 ###### Online Data Pipeline: 
