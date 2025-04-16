@@ -1,0 +1,50 @@
+version: '3.8'
+
+name: kaggle-dataset-etl
+
+volumes:
+  chestxray-data:
+
+services:
+  download-data:
+    container_name: etl_kaggle_download
+    image: python:3.11
+    user: root
+    volumes:
+      - chestxray-data:/data               # Persistent volume
+      - ~/.kaggle:/root/.kaggle:ro         # Mount kaggle.json from host
+    working_dir: /app
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+
+        echo "Installing kaggle CLI..."
+        pip install kaggle --quiet
+
+        echo "Downloading dataset into /tmp/chest_tmp..."
+        mkdir -p /tmp/chest_tmp
+        python3 -c '
+        import os
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+
+        dataset = "rifatulmajumder23/combined-unknown-pneumonia-and-tuberculosis"
+        api.dataset_download_files(dataset, path="/tmp/chest_tmp", unzip=True)
+        '
+
+        echo "Moving extracted files to /data/chest_xray..."
+        mkdir -p /data/chest_xray
+        mv /tmp/chest_tmp/data/* /data/chest_xray/
+        rm -rf /tmp/chest_tmp
+
+        echo "Listing contents of /data after extract stage:"
+        ls -l /data
+                
+        echo "Final structure at /data/chest_xray:"
+        ls -l /data/chest_xray
+                
+                
