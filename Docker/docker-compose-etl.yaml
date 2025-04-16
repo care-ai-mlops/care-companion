@@ -13,7 +13,7 @@ services:
     volumes:
       - chestxray-data:/data               # Persistent volume
       - ~/.kaggle:/root/.kaggle:ro         # Mount kaggle.json from host
-    working_dir: /app
+    working_dir: /data
     command:
       - bash
       - -c
