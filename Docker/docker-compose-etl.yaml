@@ -20,6 +20,9 @@ services:
       - |
         set -e
 
+        echo "Installing kaggle CLI..."
+        pip install kaggle --quiet
+        
         echo "Downloading dataset into /tmp/chest_tmp..."
         mkdir -p /tmp/chest_tmp
         python3 -c '
