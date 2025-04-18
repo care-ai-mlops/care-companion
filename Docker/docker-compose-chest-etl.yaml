@@ -1,0 +1,67 @@
+name: chest-xray-etl
+
+volumes:
+  chest-data:            
+
+services:
+
+  extract-data:
+    container_name: etl_extract_chestxray
+    image: python:3.10-slim
+    volumes:
+      - chest-data:/data
+      - ${HOME}/.kaggle:/root/.kaggle:ro
+    working_dir: /data
+    command: >
+      bash -c '
+        set -e
+        echo "Resetting target directory…"
+        rm -rf /data/*
+        pip install --quiet --no-cache-dir kaggle==1.6.*
+        kaggle datasets download \
+               -d rifatulmajumder23/combined-unknown-pneumonia-and-tuberculosis \
+               -p /data --unzip --force
+        ls -l /data
+      '
+
+  transform-data:
+    container_name: etl_transform_chestxray
+    image: python:3.10-slim
+    volumes:
+      - chest-data:/data
+    working_dir: /data
+    command: >
+      bash -c '
+        set -e
+        if [ -d /data/data ]; then
+          shopt -s dotglob
+          mv /data/data/* /data/
+          shopt -u dotglob
+          rmdir /data/data
+        fi
+        ls -l /data | head
+      '
+    depends_on:
+      extract-data:
+        condition: service_completed_successfully
+
+
+  load-data:
+    container_name: etl_load_chestxray
+    image: rclone/rclone:latest
+    volumes:
+      - chest-data:/data
+      - ~/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        : "${RCLONE_CONTAINER:?ERROR: set RCLONE_CONTAINER env var}"
+        rclone delete chi_tacc:$RCLONE_CONTAINER --rmdirs || true
+        rclone copy /data chi_tacc:$RCLONE_CONTAINER \
+          --progress --transfers=32 --checkers=16 \
+          --multi-thread-streams=4 --fast-list
+        rclone lsd chi_tacc:$RCLONE_CONTAINER
+    depends_on:
+      transform-data:
+        condition: service_completed_successfully
