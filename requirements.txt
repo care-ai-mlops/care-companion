@@ -1,0 +1,7 @@
+torch
+torchvision
+dataclasses
+timm 
+numpy
+pandas
+matplotlib 
