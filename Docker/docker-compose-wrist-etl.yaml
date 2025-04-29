@@ -1,0 +1,114 @@
+name: wrist-xray-etl
+
+volumes:
+  wrist-data: {}
+
+services:
+  extract-data:           
+    container_name: etl_extract_wristxray
+    image: python:3.10-slim
+    volumes:
+      - wrist-data:/data
+    environment:
+      - TOKEN=${TOKEN}
+    working_dir: /data
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        echo $TOKEN
+        rm -rf /data/*
+        mkdir -p wrist-xray/14825193
+        echo "Downloading Wrist X-Ray Dataset"
+        python3 - <<'EOF'
+        import os, json, requests
+        from pathlib import Path
+        TOKEN = os.environ['TOKEN']
+        BASE_URL = 'https://api.figshare.com/v2'
+        item_ids = [14825193]
+        dl_dir = Path('wrist-xray/14825193')
+        dl_dir.mkdir(parents=True, exist_ok=True)
+        headers = {'Authorization': f'token {TOKEN}'}
+        for iid in item_ids:
+            for f in requests.get(f"{BASE_URL}/articles/{iid}/files").json():
+                r = requests.get(f"{BASE_URL}/file/download/{f['id']}",
+                                 headers=headers, stream=True)
+                out = dl_dir / str(iid) / f['name']
+                out.parent.mkdir(parents=True, exist_ok=True)
+                with open(out, 'wb') as fd:
+                    for chunk in r.iter_content(8192):
+                        fd.write(chunk)
+                print("Downloaded", out)
+        EOF
+        find wrist-xray/14825193 -name '*.zip' -execdir unzip -o {} \;
+        echo "Done."
+
+  transform-data:          
+    container_name: etl_transform_wristxray
+    image: python:3.10-slim
+    volumes:
+      - /home/cc/data/wrist-xray:/data/wrist-xray
+    working_dir: /data
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        pip install --quiet --no-cache-dir pandas
+        python3 <<'EOF'
+        import os, shutil, pandas as pd
+        base_path = '/data/wrist-xray/14825193'
+        parent = os.path.dirname(base_path)
+        csv = os.path.join(base_path, 'dataset.csv')
+        df = pd.read_csv(csv)
+        frac_dir  = os.path.join(parent, 'FRACTURE')
+        nofrac_dir = os.path.join(parent, 'NOT_FRACTURE')
+        os.makedirs(frac_dir,  exist_ok=True)
+        os.makedirs(nofrac_dir, exist_ok=True)
+        for part in [f'images_part{i}' for i in range(1,5)]:
+            p = os.path.join(base_path, part)
+            if not os.path.isdir(p): continue
+            for fn in os.listdir(p):
+                if not fn.lower().endswith(('.jpg','.jpeg','.png')): continue
+                stem = os.path.splitext(fn)[0]
+                row = df[df['filestem'] == stem]
+                if row.empty: continue
+                dst = frac_dir if row.iloc[0]['fracture_visible']==1 else nofrac_dir
+                shutil.move(os.path.join(p,fn), os.path.join(dst,fn))
+        shutil.move(csv, os.path.join(parent, 'dataset.csv'))
+        shutil.move(folder_structure, os.path.join(parent_path, 'folder_structure'))
+        print("Transform complete.")
+
+        if not os.listdir(base_path):
+          os.rmdir(base_path)
+          print(f"Removed empty directory: {base_path}")
+        else:
+          print(f"{base_path} is not empty, manual check recommended.")
+        EOF
+
+  load-data:
+    container_name: etl_load_wristxray
+    image: rclone/rclone:latest
+    volumes:
+      - /home/cc/data/wrist-xray:/data
+      - ${HOME}/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        : "${RCLONE_CONTAINER:?ERROR: set RCLONE_CONTAINER env var}"
+
+        echo "Cleaning chi_tacc:$RCLONE_CONTAINER/wrist-data …"
+        rclone delete "chi_tacc:$RCLONE_CONTAINER/wrist-data" --rmdirs || true
+
+        echo "Uploading dataset …"
+        rclone copy /data/ chi_tacc:$RCLONE_CONTAINER/wrist-data \
+        --progress \
+        --transfers=32 \
+        --checkers=16 \
+        --multi-thread-streams=4 \
+        --fast-list
+
+        echo "Listing chi_tacc:$RCLONE_CONTAINER/"
+        rclone lsd "chi_tacc:$RCLONE_CONTAINER/" --max-depth 1
