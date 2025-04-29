@@ -87,11 +87,11 @@ services:
           print(f"{base_path} is not empty, manual check recommended.")
         EOF
 
-  load-data:               
+  load-data:
     container_name: etl_load_wristxray
     image: rclone/rclone:latest
     volumes:
-      - wrist-data:/data
+      - /home/cc/data/wrist-xray:/data
       - ${HOME}/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
     entrypoint: /bin/sh
     command:
@@ -103,8 +103,12 @@ services:
         rclone delete "chi_tacc:$RCLONE_CONTAINER/wrist-data" --rmdirs || true
 
         echo "Uploading dataset …"
-        rclone copy /data "chi_tacc:$RCLONE_CONTAINER/wrist-data" \
-               --progress --transfers=32 --checkers=16 --multithread-stream=4 --fast-list
+        rclone copy /data/ chi_tacc:$RCLONE_CONTAINER/wrist-data \
+        --progress \
+        --transfers=32 \
+        --checkers=16 \
+        --multi-thread-streams=4 \
+        --fast-list
 
         echo "Listing chi_tacc:$RCLONE_CONTAINER/"
         rclone lsd "chi_tacc:$RCLONE_CONTAINER/" --max-depth 1
