@@ -22,7 +22,6 @@ services:
                -p /data --unzip --force
       '
 
-
   transform-data:
     container_name: etl_transform_chestxray
     image: python:3.10-slim
