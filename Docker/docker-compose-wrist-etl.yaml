@@ -48,13 +48,14 @@ services:
     container_name: etl_transform_wristxray
     image: python:3.10-slim
     volumes:
-      - wrist-data:/data
+      - /home/cc/data/wrist-xray:/data/wrist-xray
     working_dir: /data
     command:
       - bash
       - -c
       - |
         set -e
+        pip install --quiet --no-cache-dir pandas
         python3 <<'EOF'
         import os, shutil, pandas as pd
         base_path = '/data/wrist-xray/14825193'
@@ -76,7 +77,14 @@ services:
                 dst = frac_dir if row.iloc[0]['fracture_visible']==1 else nofrac_dir
                 shutil.move(os.path.join(p,fn), os.path.join(dst,fn))
         shutil.move(csv, os.path.join(parent, 'dataset.csv'))
+        shutil.move(folder_structure, os.path.join(parent_path, 'folder_structure'))
         print("Transform complete.")
+
+        if not os.listdir(base_path):
+          os.rmdir(base_path)
+          print(f"Removed empty directory: {base_path}")
+        else:
+          print(f"{base_path} is not empty, manual check recommended.")
         EOF
 
   load-data:               
