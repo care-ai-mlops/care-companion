@@ -1,0 +1,33 @@
+name: chest-xray-trainer
+services:
+  trainer:
+    build:
+      context: .
+      dockerfile: Docker/Dockerfile
+    container_name: chest-xray-trainer
+    volumes:
+      - .:/workspace               # Mount CARE-COMPANION code
+      - /mnt/object:/mnt/object    # Mount host object storage path
+      - /mnt/block:/mnt/block      # Mount block storage for outputs
+    working_dir: /workspace
+    command: >
+      python src/chest-xray-trainer.py 
+      --root /mnt/object/chest-data 
+      --save_root /mnt/block 
+      --total_epochs 20 
+      --initial_epochs 5 
+      --dropout 0.5 
+      --initial_lr 3e-4 
+      --fine_tune_lr 3e-5
+    environment:
+      - MLFLOW_TRACKING_URI=http://<FLOATING_IP>:8000
+      - AWS_ACCESS_KEY_ID=your-access-key
+      - AWS_SECRET_ACCESS_KEY=your-secret-key
+      - MLFLOW_S3_ENDPOINT_URL=http://<FLOATING_IP>:9000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+doc
