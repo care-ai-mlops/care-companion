@@ -40,7 +40,7 @@ class CustomDatasetWrist:
         if not split_dir.exists():
             raise FileNotFoundError(f"Missing split dir: {split_dir}")
         
-        projection_dir = [d for d in split_dir.iterdir() if d.is_dir() and d.name.startswith == "projection"]
+        projection_dir = [d for d in split_dir.iterdir() if d.is_dir() and d.name.startswith("projection")]
         if not projection_dir:
             raise FileNotFoundError(f"Missing projection dir: {split_dir}")
 
