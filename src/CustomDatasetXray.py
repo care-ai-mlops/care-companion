@@ -9,7 +9,7 @@ class CustomDatasetXray:
 
     def __init__(
                 self,
-                root: str | Path = "data/data",
+                root: str | Path = "mnt/object/chest-data",
                 img_size: int = 224,
                 batch_size: int = 32,
                 num_workers: int = 4,
