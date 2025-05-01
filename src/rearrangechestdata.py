@@ -105,6 +105,11 @@ class Rearranger:
 
     def execute(self) -> None:
         df = self._load_dataframe()
+        for split in ["train", "val", "test"]:
+            unk_dir = self.cfg.root / split / "UNKNOWN"
+            if unk_dir.exists():
+                print(f"Removing folder {unk_dir} …")
+                shutil.rmtree(unk_dir) 
         before = len(df)
         df = df[df[self.cfg.class_col] != "UNKNOWN"].reset_index(drop=True)
         print(f"Removed {before - len(df)} UNKNOWN samples")
@@ -125,10 +130,14 @@ class Rearranger:
                 continue
             new = self.cfg.root / row["split"] / row[self.cfg.class_col] / old.name
             new.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(old, new)
-            df.at[idx, "filepath"] = str(new.relative_to(self.cfg.root))
+            try:
+                shutil.move(old, new)
+            except shutil.SameFileError:
+                pass
+            else:
+                df.at[idx, "filepath"] = str(new.relative_to(self.cfg.root))
 
-        # Save & report
+
         df.to_csv(self.cfg.meta_csv, index=False)
         print("\n  Dataset restructured & CSV updated.\n")
         print(df.groupby(["split", self.cfg.class_col]).size().unstack(fill_value=0))

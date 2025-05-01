@@ -12,7 +12,7 @@ import mlflow
 import mlflow.pytorch
 
 import warnings
-warnings.filterwarnings("ignore", message="Failed to load image Python extension")
+warnings.filterwarnings("ignore")
 
 
 class PreTrainedClassifier(nn.Module):
@@ -53,9 +53,9 @@ class PreTrainedClassifier(nn.Module):
 
 @dataclass
 class Trainer:
-    save_root: Path = Path("/mnt/block/")
     model: nn.Module
     loaders: dict[str, DataLoader]
+    save_root: Path = Path("checkpoints/")
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     lr: float = 3e-4
     initial_epochs: int = 5
@@ -138,7 +138,7 @@ class Trainer:
             mlflow.log_text(gpu_info, "gpu-info.txt")
             for epoch in range(1, self.initial_epochs):
                 if use_chek_pt:
-                    ckpt_path = self.save_root / f"Models" / f"best_resnet.pt"
+                    ckpt_path = self.save_root / f"best_resnet.pt"
                     if os.path.exists(ckpt_path):
                         self.model.load_state_dict(torch.load(ckpt_path))
                         print(f"Checkpoint loaded from {ckpt_path}")
@@ -147,9 +147,9 @@ class Trainer:
                 val_loss, val_acc = self._run_epoch("val",   train=False)
                 self.scheduler.step()
 
-                print(f"Epochs: [{epoch:02d}/{self.total_epochs}] "
-                    f"Train Loss: {tr_loss:.4f} Train Accuracy:{tr_acc:.3f}  "
-                    f"val Validation Loss: {val_loss:.4f} Validation Accuracy: {val_acc:.3f}  "
+                print(f"Epochs: [{epoch:02d}/{self.total_epochs}]  "
+                    f"Train Loss: {tr_loss:.4f} Train Accuracy:{tr_acc:.4f}  "
+                    f"val Validation Loss: {val_loss:.4f} Validation Accuracy: {val_acc:.4f}  "
                     f"Epoch Time: {time.time()-t0:.1f}s")
                 
                 mlflow.log_metrics(
@@ -164,9 +164,13 @@ class Trainer:
 
                 if val_acc > best_acc:
                     best_acc, best_wts = val_acc, copy.deepcopy(self.model.state_dict())
-                    ckpt_path = os.makedirs(self.save_root / f"Models", exist_ok=True) / f"best_resnet.pt"
+                    ckpt_dir = self.save_root
+                    ckpt_dir.mkdir(exist_ok=True)
+                    ckpt_path = ckpt_dir / "best_resnet.pt"
                     torch.save(best_wts, ckpt_path)
-                    print(f"Best val-acc {best_acc:.3f} saved to {ckpt_path}")
+
+                    mlflow.log_artifacts(str(ckpt_path), artifact_path="Models")
+                    print(f"Best val-acc {best_acc:.4f} saved to {ckpt_path}")
 
             self.model.load_state_dict(best_wts)
     
@@ -227,8 +231,12 @@ class Trainer:
 
                 if val_acc > best_acc:
                     best_acc, best_wts = val_acc, copy.deepcopy(self.model.state_dict())
-                    ckpt_path = os.makedirs(self.save_root / f"Models", exist_ok=True) / f"best_resnet.pt"
+                    ckpt_dir = self.save_root
+                    ckpt_dir.mkdir(exist_ok=True)
+                    ckpt_path = ckpt_dir / "best_resnet.pt"
                     torch.save(best_wts, ckpt_path)
+
+                    mlflow.log_artifacts(str(ckpt_path), artifact_path="Models")
                     print(f"Best val-acc {best_acc:.3f} saved to {ckpt_path}")
 
             self.model.load_state_dict(best_wts)
@@ -251,21 +259,21 @@ class Trainer:
 
 
 def main():
-    p = argparse.ArgumentParser("OOP ResNet18 trainer")
-    p.add_argument("--root", type=Path, default=Path("mnt/object/chest-data"))
+    p = argparse.ArgumentParser("Chest Data trainer")
+    p.add_argument("--root", type=Path, default=Path("/mnt/object/chest-data"))
     p.add_argument("--total_epochs", type=int, default=20)
     p.add_argument("--initial_epochs", type=int, default=5)
     p.add_argument("--model_backbone", type=str, default="resnet18")
-    p.add_argument("--save_root", type=Path, default=Path("mnt/block/"))
+    p.add_argument("--save_root", type=Path, default=Path("/models/checckpoints/"))
     p.add_argument("--bs", type=int, default=32)
     p.add_argument("--initial_lr", type=float, default=3e-4)
     p.add_argument("--fine_tune_lr", type=float, default=3e-5)
     p.add_argument("--dropout", type=float, default=0.5)
     p.add_argument("--no-pretrain", action="store_true")
     args = p.parse_args()
-
+    print("Inside Trainer File")
     data = CustomDatasetXray(root=args.root, batch_size=args.bs, augment=True)
-    loaders, mapping = data.loaders()
+    loaders, mapping = data.get_loaders()
     n_classes = len(mapping)
 
     print(mapping)
@@ -300,6 +308,9 @@ def main():
         trainer.evaluate(split)
 
     print("Training complete.")
+
+if __name__ == "__main__":
+    main()
 
 ''' 
 if epoch == self.initial_epochs + 1:
