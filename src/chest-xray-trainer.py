@@ -25,14 +25,16 @@ class PreTrainedClassifier(nn.Module):
                  model_backbone: Optional[str] = "resnet18",
                  ) -> None:
         super().__init__()
+        self.model_backbone_map = {
+            'resnet18': models.ResNet18_Weights.IMAGENET1K_V1,
+            'resnet50': models.ResNet50_Weights.IMAGENET1K_V1,
+            'efficientnetb1': models.EfficientNet_B1_Weights.IMAGENET1K_V2, 
+            'efficientnetb1': models.EfficientNet_B4_Weights.IMAGENET1K_V1, 
+        }
         self.dropout = dropout
-        if model_backbone == "resnet18" and pretrained:
-            weights = models.ResNet18_Weights.IMAGENET1K_V1
-        elif model_backbone == "resnet18" and not pretrained:
-            weights = None
-        elif model_backbone == "resnet50" and pretrained:
-            weights = models.ResNet50_Weights.IMAGENET1K_V1
-        elif model_backbone == "resnet50" and not pretrained:
+        if model_backbone in self.model_backbone_map and pretrained:
+            weights = self.model_backbone_map[model_backbone] 
+        elif model_backbone in self.model_backbone_map and not pretrained:
             weights = None
         else:
             raise ValueError(f"Unsupported model backbone: {model_backbone}")
