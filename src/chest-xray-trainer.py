@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Any, Dict, List, Tuple
-import time, copy, argparse, os, subprocess
+import time, copy, argparse, os, subprocess, tempfile, shutil
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -10,6 +10,8 @@ from torchvision import datasets, transforms, models
 from CustomDatasetXray import CustomDatasetXray 
 import mlflow
 import mlflow.pytorch
+from mlflow import register_model
+from tqdm import tqdm
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -138,7 +140,7 @@ class Trainer:
                 "trainable_params": trainable_params_ch
             })
             mlflow.log_text(gpu_info, "gpu-info.txt")
-            for epoch in range(1, self.initial_epochs):
+            for epoch in tqdm(range(1, self.initial_epochs + 1), desc="Initial Training", unit="epoch"):
                 if use_chek_pt:
                     ckpt_path = self.save_root / f"best_resnet.pt"
                     if os.path.exists(ckpt_path):
@@ -205,7 +207,7 @@ class Trainer:
             })
             mlflow.log_text(gpu_info, "gpu-info.txt")
 
-            for epoch in range(self.initial_epochs + 1, self.total_epochs + 1):
+            for epoch in tqdm(range(self.initial_epochs + 1, self.total_epochs + 1), desc="Fine Tuning", unit="epoch"):
                 if use_chek_pt:
                     ckpt_path = self.save_root / f"Models" / f"best_resnet.pt"
                     if os.path.exists(ckpt_path):
@@ -219,7 +221,7 @@ class Trainer:
 
                 print(f"Epochs: [{epoch:02d}/{self.total_epochs}] "
                     f"Train Loss: {tr_loss:.4f} Train Accuracy:{tr_acc:.3f}  "
-                    f"val Validation Loss: {val_loss:.4f} Validation Accuracy: {val_acc:.3f}  "
+                    f"Validation Loss: {val_loss:.4f} Validation Accuracy: {val_acc:.3f}  "
                     f"Epoch Time: {time.time()-t0:.1f}s")
                 mlflow.log_metrics(
                     {"epoch_time": time.time()-t0, 
@@ -247,17 +249,26 @@ class Trainer:
     def evaluate(self, split: str):
         loss, acc = self._run_epoch(split, train=False)
         print(f"{split:>20}: loss {loss:.4f}  acc {acc:.3f}")
-        with mlflow.start_run(run_name="evaluate", log_system_metrics=True):
+
+        with mlflow.start_run(run_name=f"evaluate_{split}", nested=True):
             mlflow.log_params({
-                "phase": "evaluate",
+                "phase": f"{split}-evaluation",
                 "split": split,
                 "model": self.model.__class__.__name__,
             })
-            mlflow.log_metrics(
-                {f"{split}_loss": loss, 
-                f"{split}_accuracy": acc}
-                )
-        return loss, acc
+            mlflow.log_metrics({
+                f"{split}_loss": loss,
+                f"{split}_accuracy": acc
+            })
+            tmpdir = tempfile.mkdtemp()
+            try:
+                mlflow.pytorch.save_model(self.model, path=tmpdir)               # writes model files
+                mlflow.log_artifacts(tmpdir, artifact_path="model")
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+    
+            eval_run_id = mlflow.active_run().info.run_id
+        return loss, acc, eval_run_id
 
 
 def main():
@@ -273,7 +284,7 @@ def main():
     p.add_argument("--dropout", type=float, default=0.5)
     p.add_argument("--no-pretrain", action="store_true")
     args = p.parse_args()
-    print("Inside Trainer File")
+
     data = CustomDatasetXray(root=args.root, batch_size=args.bs, augment=True)
     loaders, mapping = data.get_loaders()
     n_classes = len(mapping)
@@ -285,7 +296,12 @@ def main():
     print(f"Number of test samples: {len(loaders['test'].dataset)}")
     print(f"Number of canary testing samples: {len(loaders['canary_testing_data'].dataset)}")
     print(f"Number of production samples: {len(loaders['production_data'].dataset)}")
-
+    
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if not tracking_uri:
+        raise RuntimeError("Please set MLFLOW_TRACKING_URI")
+    mlflow.set_tracking_uri(tracking_uri)
+    
     net = PreTrainedClassifier(
         num_classes=n_classes, 
         pretrained=not args.no_pretrain, 
@@ -306,8 +322,15 @@ def main():
     trainer.fit_initial()
     trainer.fit_fine_tune()
 
+    last_run_id = None
     for split in ["test", "canary_testing_data", "production_data"]:
-        trainer.evaluate(split)
+        _, _, last_run_id = trainer.evaluate(split)
+
+    if last_run_id is None:
+        raise RuntimeError("No evaluation run to register")
+    model_uri = f"runs:/{last_run_id}/model"
+    register_model(model_uri, "chest-xray-classifier")
+    print("Registered model from evaluation run", last_run_id)
 
     print("Training complete.")
 

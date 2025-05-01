@@ -15,35 +15,59 @@ from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 
-from CustomDatasetXray import CustomDatasetXray
+from CustomDatasetWrist import CustomDatasetWrist
 
 class TwoProjectionResNet(nn.Module):
-    def __init__(self, num_classes: int, pretrained: bool = True):
+    def __init__(self, 
+                 num_classes: int,
+                 dropout: float = 0.5, 
+                 pretrained: bool = True,
+                 model_backbone_1: Optional[str] = "resnet18",
+                 model_backbone_2: Optional[str] = "resnet18"
+                ):
         super().__init__()
-        weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
-        backbone = models.resnet18(weights=weights)
-        in_feat = backbone.fc.in_features
+        self.model_backbone_map = {
+            'resnet18': models.ResNet18_Weights.IMAGENET1K_V1,
+            'resnet50': models.ResNet50_Weights.IMAGENET1K_V1,
+            'efficientnetb1': models.EfficientNet_B1_Weights.IMAGENET1K_V2, 
+            'efficientnetb4': models.EfficientNet_B4_Weights.IMAGENET1K_V1, 
+        }
+        self.dropout = dropout
+        assert model_back_1 == model_backbone_2, "Both backbones should be of same architecture"
+        
+        if model_backbone_1 in self.model_backbone_map and pretrained:
+            weights = self.model_backbone_map[model_backbone] 
+        elif model_backbone_1 in self.model_backbone_map and not pretrained:
+            weights = None
+        else:
+            raise ValueError(f"Unsupported model backbone: {model_backbone_1}")
+        
+        
+        self.backbone = models.resnet18(weights=weights)
+        in_feat = self.backbone.fc.in_features
         backbone.fc = nn.Identity()
         self.backbone = backbone
         self.head = nn.Linear(in_feat * 2, num_classes)
 
     def forward(self, x1, x2):
-        f1 = self.backbone(x1)
-        f2 = self.backbone(x2)
-        f = torch.cat([f1, f2], dim=1)
+        f1 = self.backbone(x1) # projection-1
+        f2 = self.backbone(x2) # projection-2
+        f = torch.cat([f1, f2], dim=1) # classification head to concatenate both the backbones 
         return self.head(f)
 
 @dataclass
 class Trainer:
     model: nn.Module
     loaders: dict[str, DataLoader]
-    device: torch.device
-    optimizer: optim.Optimizer
-    criterion: nn.Module
-    num_epochs: int
-    scheduler: optim.lr_scheduler._LRScheduler | None = None
-    save_path: Path = Path("best_model.pth")
-    use_mlflow: bool = False
+    save_root: Path = Path("checkpoints/")
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    lr: float = 3e-4
+    initial_epochs: int = 5
+    total_epochs: int = 20
+    patience: int = 5
+    fine_tune_lr: float = 3e-5
+    dropout: float = 0.5
+    use_mlflow: bool = True
 
     def train(self):
         best_acc = 0.0
