@@ -1,0 +1,17 @@
+# Use NVIDIA Triton base image
+FROM nvcr.io/nvidia/tritonserver:24.10-py3
+
+# Install necessary dependencies
+RUN pip install --no-cache-dir \
+    pillow \
+    torch torchvision \
+    onnxruntime-gpu
+
+# Expose Triton ports
+EXPOSE 8000 8001 8002
+
+# Copy the model repository into the container
+COPY models /models
+
+# Start Triton server with the model repository
+CMD ["tritonserver", "--model-repository=/models"]
