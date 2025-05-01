@@ -27,3 +27,4 @@ services:
       - MLFLOW_S3_UPLOAD_EXTRA_ARGS={"ACL":"private"}
       - NVIDIA_VISIBLE_DEVICES=all
     runtime: nvidia
+
