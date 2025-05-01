@@ -1,10 +1,9 @@
 name: chest-xray-etl
 
 volumes:
-  chest-data:             
-
+  chest-data:
+  
 services:
-
   extract-data:
     container_name: etl_extract_chestxray
     image: python:3.10-slim
@@ -18,8 +17,8 @@ services:
         rm -rf /data/*
         pip install --quiet --no-cache-dir kaggle==1.6.*
         kaggle datasets download \
-               -d rifatulmajumder23/combined-unknown-pneumonia-and-tuberculosis \
-               -p /data --unzip --force
+          -d rifatulmajumder23/combined-unknown-pneumonia-and-tuberculosis \
+          -p /data --unzip --force
       '
 
   transform-data:
@@ -27,21 +26,35 @@ services:
     image: python:3.10-slim
     volumes:
       - chest-data:/data
-    working_dir: /data
+      - ${HOME}/care-companion/:/workspace:ro                   
+    working_dir: /workspace
     command: >
       bash -c '
         set -e
+        # flatten the nested data/ folder if it exists
         if [ -d /data/data ]; then
           shopt -s dotglob
           mv /data/data/* /data/
           shopt -u dotglob
           rmdir /data/data
         fi
+
+        # install pandas (and any other deps of your script)
+        pip install --quiet --no-cache-dir pandas
+        
+        echo "Rearranging Data"
+        
+        # run the rearranger on /data
+        python src/rearrangechestdata.py --root /data
+        
+        echo "TRAIN FOLDER"
+        ls -al /data/train/
+        echo "TEST FOLDER"
+        ls -al /data/test/
       '
     depends_on:
       extract-data:
         condition: service_completed_successfully
-
 
   load-data:
     container_name: etl_load_chestxray
@@ -63,7 +76,7 @@ services:
           --progress --transfers=32 --checkers=16 \
           --multi-thread-streams=4 --fast-list
 
-        echo "Top‑level folders in bucket now:"
+        echo "Top-level folders in bucket now:"
         rclone lsd "chi_tacc:$RCLONE_CONTAINER"
     depends_on:
       transform-data:
