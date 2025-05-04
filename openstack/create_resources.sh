@@ -2,7 +2,7 @@
 
 NET_NAME="private_net_project51"
 SUBNET_NAME="subnet_project51"
-VM_FLAVOR="m1.medium"
+VM_FLAVOR="m1.large"
 IMAGE_NAME="CC-Ubuntu24.04"
 SSH_KEY="key1"
 FLOATING_IP="129.114.27.163" 
