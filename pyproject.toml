@@ -1,0 +1,29 @@
+[project]
+name = "care-companion"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Satyam", email = "sc10247@nyu.edu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "torchvision",
+    "numpy",
+    "mlflow",
+    "onnx",
+    "onnxruntime",
+    "ipykernel",
+    "tqdm"
+]
+
+[project.scripts]
+care-companion = "care_companion:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling.packages.find]
+where = ["src","utils"]

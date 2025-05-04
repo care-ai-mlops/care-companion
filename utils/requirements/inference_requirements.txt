@@ -1,0 +1,8 @@
+torch
+torchvision
+numpy
+mlflow
+onnx
+onnxruntime
+ipykernel
+tqdm
