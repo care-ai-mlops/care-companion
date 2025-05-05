@@ -35,3 +35,7 @@ sudo jq 'if has("exec-opts") then . else . + {"exec-opts": ["native.cgroupdriver
 
 echo "Restarting Docker service..."
 sudo systemctl restart docker
+
+# Install nvtop
+sudo apt update
+sudo apt -y install nvtop
