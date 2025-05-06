@@ -277,7 +277,7 @@ def main():
     p.add_argument("--total_epochs", type=int, default=20)
     p.add_argument("--initial_epochs", type=int, default=5)
     p.add_argument("--model_backbone", type=str, default="resnet18")
-    p.add_argument("--save_root", type=Path, default=Path("/models/checckpoints/"))
+    p.add_argument("--save_root", type=Path, default=Path("./checkpoints/"))
     p.add_argument("--bs", type=int, default=32)
     p.add_argument("--initial_lr", type=float, default=3e-4)
     p.add_argument("--fine_tune_lr", type=float, default=3e-5)
