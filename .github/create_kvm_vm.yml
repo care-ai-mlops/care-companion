@@ -1,0 +1,31 @@
+name: Create VM on KVM@TACC
+
+on:
+  workflow_dispatch:
+    inputs:
+      vm_id:
+        description: 'Name for the VM (e.g., node1)'
+        required: true
+      static_ip:
+        description: 'Static IP for the VM (e.g., 192.168.1.51)'
+        required: true
+
+jobs:
+  create-vm:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Load OpenStack credentials
+      run: |
+        source $HOME/.config/openstack/openrc.sh  # or export OS_CLOUD=openstack
+
+    - name: Run create_resources.sh
+      run: |
+        chmod +x ./openstack/kvm@tacc/create_resources.sh
+        ./openstack/kvm@tacc/create_resources.sh "${{ github.event.inputs.vm_id }}" "${{ github.event.inputs.static_ip }}"
