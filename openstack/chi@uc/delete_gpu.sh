@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SERVER_NAME="gpu_v100_project51"
-LEASE_NAME="gpu_compute_gigaio_project51"
-FLOATING_IP="192.5.87.25"
+LEASE_NAME="gpu_rtx_6000_project51"
+FLOATING_IP="192.5.87.67"
 
 echo "Deleting floating IP..."
 openstack server remove floating ip "$SERVER_NAME" "$FLOATING_IP" 
