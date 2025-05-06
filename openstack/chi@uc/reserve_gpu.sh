@@ -20,7 +20,7 @@ until openstack reservation lease show "$RESERVATION" | grep -i '| status\s*| AC
 done
 
 RESERVATION_ID=$(openstack reservation lease show "$RESERVATION" | grep '"id":' | awk -F'"' '{print $4}' | tail -1)
-
+echo "Reservation ID: $RESERVATION_ID"
 echo "Creating server: $INSTANCE_NAME"
 openstack server create \
   --image "$IMAGE_NAME" \
