@@ -5,4 +5,4 @@ timm
 numpy
 pandas
 matplotlib 
-mlflow
+mlflow==2.20.2
