@@ -6,16 +6,13 @@ VM_FLAVOR="m1.large"
 IMAGE_NAME="CC-Ubuntu24.04"
 SSH_KEY="key1"
 FLOATING_IP="129.114.27.163" 
-
-VM_ID="$1"
-STATIC_IP="$2"
-
-PORT_ID="${VM_ID}_port51"
+INSTANCE_NAME="mlops_project51"
+STATIC_IP="192.112.0.50"
+PORT_ID="mlops_port51"
 
 openstack port create \
   --network "$NET_NAME" \
   --fixed-ip subnet="$SUBNET_NAME",ip-address="$STATIC_IP" \
-  --disable-port-security \
   "$PORT_ID"
 
 openstack server create \
@@ -27,4 +24,4 @@ openstack server create \
   --security-group default \
   --security-group allow-ssh \
   --security-group allow-http-80 \
-  "${VM_ID}_project51"
+   "$INSTANCE_NAME"
