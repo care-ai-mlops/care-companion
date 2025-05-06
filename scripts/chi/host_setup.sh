@@ -39,3 +39,29 @@ sudo systemctl restart docker
 # Install nvtop
 sudo apt update
 sudo apt -y install nvtop
+
+# Install rclone 
+curl https://rclone.org/install.sh | sudo bash
+
+# Update rclone config file
+sudo sed -i '/^#user_allow_other/s/^#//' /etc/fuse.conf
+mkdir -p ~/.config/rclone
+
+# TODO: Make Github Action inject secrets in the following file.
+cat <<EOF >> ~/.config/rclone/rclone.conf
+[chi_tacc]
+type = swift
+user_id = YOUR_USER_ID
+application_credential_id = APP_CRED_ID
+application_credential_secret = APP_CRED_SECRET
+auth = https://chi.tacc.chameleoncloud.org:5000/v3
+region = CHI@TACC
+EOF
+
+# Change mount point ownership
+sudo mkdir -p /mnt/object
+sudo chown -R cc /mnt/object
+sudo chgrp -R cc /mnt/object
+
+# Mount the object storage
+rclone mount chi_tacc:object-persist-project51 /mnt/object --read-only --allow-other --daemon
