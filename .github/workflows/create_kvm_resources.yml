@@ -1,0 +1,29 @@
+name: OpenStack Resource Management
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  openstack:
+    runs-on: self-hosted  
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Source OpenStack credentials
+        run: |
+          source ~/Downloads/CHI-251409-openrc.sh
+
+      - name: Create OpenStack Resources
+        run: |
+          chmod +x ./openstack/kvm@tacc/create_resources.sh
+          ./openstack/kvm@tacc/create_resources.sh ${{ secrets.VM_ID }} ${{ secrets.STATIC_IP }}
+
+      - name: Delete OpenStack Resources
+        run: |
+          chmod +x ./openstack/kvm@tacc/delete_resources.sh
+          ./openstack/kvm@tacc/delete_resources.sh

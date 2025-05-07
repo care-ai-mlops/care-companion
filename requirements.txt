@@ -5,5 +5,5 @@ timm
 numpy
 pandas
 matplotlib 
-mlflow
-ray
+mlflow==2.20.2
+ray=2.42.1
