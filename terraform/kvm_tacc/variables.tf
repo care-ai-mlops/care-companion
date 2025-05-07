@@ -19,12 +19,3 @@ variable "nodes" {
   }
 }
 
-variable "OS_APP_CRED_ID" {
-  description = "The OpenStack application credential ID"
-  type        = string
-}
-
-variable "OS_APP_CRED_SECRET" {
-  description = "The OpenStack application credential secret"
-  type        = string
-}
