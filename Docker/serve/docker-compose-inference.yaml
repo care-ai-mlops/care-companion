@@ -2,8 +2,8 @@ name: inference_service
 services:
   triton_server:
     build:
-      context: /home/cc/care-companion/serve
-      dockerfile: Docker/Dockerfile.triton
+      context: /home/cc/care-companion/Docker
+      dockerfile: serve/Dockerfile.triton
     container_name: triton_server
     deploy:
       resources:
@@ -20,8 +20,8 @@ services:
 
   fastapi:
     build:
-      context: /home/cc/care-companion/serve
-      dockerfile: Docker/Dockerfile.fastapi
+      context: /home/cc/care-companion/Docker
+      dockerfile: serve/Dockerfile.fastapi
     container_name: fastapi_server
     ports:
       - "80:5000"
