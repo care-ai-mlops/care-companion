@@ -1,28 +1,36 @@
-name: Terraform Deploy
+name: Terraform Apply for chi_uc
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   terraform:
     runs-on: self-hosted
 
-    env:
-      TF_VAR_credential_id: ${{ secrets.OS_APP_CRED_ID }}
-      TF_VAR_credential_secret: ${{ secrets.OS_APP_CRED_SECRET}}
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        working-directory: terraform/chi_uc/
 
       - name: Terraform Init
         run: terraform init
+        working-directory: terraform/chi_uc/
 
       - name: Terraform Plan
         run: terraform plan
+        working-directory: terraform/chi_uc/
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
+        working-directory: terraform/chi_uc/
+        env:
+          OPENSTACK_APPLICATION_CREDENTIAL_ID: ${{ secrets.OS_APP_CRED_ID }}
+          OPENSTACK_APPLICATION_CREDENTIAL_SECRET: ${{ secrets.OS_APP_CRED_SECRET }}
