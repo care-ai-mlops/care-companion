@@ -18,15 +18,15 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: terraform/chi_uc/
+        working-directory: terraform/kvm_tacc/
 
       - name: Terraform Plan
         run: terraform plan
-        working-directory: terraform/chi_uc/
+        working-directory: terraform/kvm_tacc/
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        working-directory: terraform/chi_uc/
+        working-directory: terraform/kvm_tacc/
         env:
           OPENSTACK_APPLICATION_CREDENTIAL_ID: ${{ secrets.OS_APP_CRED_ID }}
           OPENSTACK_APPLICATION_CREDENTIAL_SECRET: ${{ secrets.OS_APP_CRED_SECRET }}
