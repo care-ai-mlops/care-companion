@@ -1,4 +1,4 @@
-name: ray_cluster
+name: tracking_service
 services:
   minio:
     image: minio/minio
