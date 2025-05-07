@@ -33,6 +33,7 @@ resource "openstack_networking_port_v2" "sharednet1_ports" {
     ]
 }
 
+# Create the instance, referencing the baremetal flavor, and scheduler hint
 resource "openstack_compute_instance_v2" "node1" {
 
   for_each   = var.nodes
@@ -40,7 +41,7 @@ resource "openstack_compute_instance_v2" "node1" {
   name = "${each.key}-mlops-${var.suffix}"
   image_name = "CC-Ubuntu24.04-CUDA"
   flavor_name = "baremetal"
-  key_pair = "key1"
+  key_pair = "${var.key}"
 
   network {
     port = openstack_networking_port_v2.sharednet1_ports[each.key].id
@@ -52,7 +53,7 @@ resource "openstack_compute_instance_v2" "node1" {
 
   scheduler_hints {
     additional_properties = {
-        "reservation" = "${var.reservation_token}"
+        "reservation" = "${var.reservation_id}"
     }
   }
 
@@ -66,6 +67,6 @@ resource "openstack_compute_instance_v2" "node1" {
 
 resource "openstack_networking_floatingip_v2" "floating_ip" {
   pool        = "public"
-  description = "Project51 IP for ${var.suffix}"
+  description = "MLOps IP for ${var.suffix}"
   port_id     = openstack_networking_port_v2.sharednet1_ports["node1"].id
 }

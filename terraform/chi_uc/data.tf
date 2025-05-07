@@ -13,5 +13,3 @@ data "openstack_networking_secgroup_v2" "allow_ssh" {
 data "openstack_networking_secgroup_v2" "allow_30000_32767" {
   name = "nodeport-30000-32767"
 }
-
-
