@@ -13,14 +13,22 @@ openstack reservation lease create \
   --reservation min=1,max=1,resource_type=physical:host,resource_properties='["=", "$node_type", "gpu_rtx_6000"]' \
   "$RESERVATION"
 
+LEASE_ID=$(openstack reservation lease show "$RESERVATION" -f value -c id)
+
 echo "Waiting for lease to become ACTIVE..."
-until openstack reservation lease show "$RESERVATION" | grep -i '| status\s*| ACTIVE' > /dev/null; do
-    openstack reservation lease show "$RESERVATION" | grep -i '| status\s*|'
-    sleep 2
+while true; do
+  STATUS=$(openstack reservation lease show "$LEASE_ID" -f value -c status)
+  if [[ "$STATUS" == "ACTIVE" ]]; then
+    echo "Lease is ACTIVE."
+    break
+  elif [[ "$STATUS" == "ERROR" ]]; then
+    echo "Lease failed."
+    exit 1
+  fi
+  sleep 2
 done
 
-RESERVATION_ID=$(openstack reservation lease show "$RESERVATION" | grep '"id":' | awk -F'"' '{print $4}' | tail -1)
-echo "Reservation ID: $RESERVATION_ID"
-
+RESERVE_ID=$(openstack reservation lease show "$RESERVATION" | grep '"id":' | sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | tail -1)
+echo "Reservation ID: $RESERVE_ID"
 
 echo "Done"
