@@ -1,6 +1,5 @@
-
 resource "openstack_networking_network_v2" "private_net" {
-  name = "private-net-mlops-${var.suffix}"
+  name                  = "private-net-mlops-${var.suffix}"
   port_security_enabled = false
 }
 
@@ -23,37 +22,34 @@ resource "openstack_networking_port_v2" "private_net_ports" {
   }
 }
 
-resource "openstack_networking_port_v2" "sharednet1_ports" {
+resource "openstack_networking_port_v2" "sharednet2_ports" {
   for_each   = var.nodes
-    name       = "sharednet1-${each.key}-mlops-${var.suffix}"
-    network_id = data.openstack_networking_network_v2.sharednet1.id
+    name       = "sharednet2-${each.key}-mlops-${var.suffix}"
+    network_id = data.openstack_networking_network_v2.sharednet2.id
     security_group_ids = [
       data.openstack_networking_secgroup_v2.allow_ssh.id,
-      data.openstack_networking_secgroup_v2.allow_30000_32767.id
+      data.openstack_networking_secgroup_v2.allow_9001.id,
+      data.openstack_networking_secgroup_v2.allow_8000.id,
+      data.openstack_networking_secgroup_v2.allow_8081.id,
+      data.openstack_networking_secgroup_v2.allow_http_80.id,
+      data.openstack_networking_secgroup_v2.allow_9090.id
     ]
 }
 
-resource "openstack_compute_instance_v2" "node1" {
+resource "openstack_compute_instance_v2" "nodes" {
+  for_each = var.nodes
 
-  for_each   = var.nodes
-
-  name = "${each.key}-mlops-${var.suffix}"
-  image_name = "CC-Ubuntu24.04-CUDA"
-  flavor_name = "baremetal"
-  key_pair = "key1"
+  name        = "${each.key}-mlops-${var.suffix}"
+  image_name  = "CC-Ubuntu24.04"
+  flavor_name = "m1.medium"
+  key_pair    = var.key
 
   network {
-    port = openstack_networking_port_v2.sharednet1_ports[each.key].id
+    port = openstack_networking_port_v2.sharednet2_ports[each.key].id
   }
 
   network {
     port = openstack_networking_port_v2.private_net_ports[each.key].id
-  }
-
-  scheduler_hints {
-    additional_properties = {
-        "reservation" = "${var.reservation_token}"
-    }
   }
 
   user_data = <<-EOF
@@ -61,11 +57,11 @@ resource "openstack_compute_instance_v2" "node1" {
     sudo echo "127.0.1.1 ${each.key}-mlops-${var.suffix}" >> /etc/hosts
     su cc -c /usr/local/bin/cc-load-public-keys
   EOF
-  
+
 }
 
 resource "openstack_networking_floatingip_v2" "floating_ip" {
   pool        = "public"
-  description = "Project51 IP for ${var.suffix}"
-  port_id     = openstack_networking_port_v2.sharednet1_ports["node1"].id
+  description = "MLOps IP for ${var.suffix}"
+  port_id     = openstack_networking_port_v2.sharednet2_ports["node1"].id
 }

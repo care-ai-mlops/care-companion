@@ -1,3 +1,3 @@
 provider "openstack" {
-  cloud = "chi_uc"
+  cloud = "kvm_tacc"
 }
