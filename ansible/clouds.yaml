@@ -5,8 +5,8 @@ clouds:
       
       auth_url: https://kvm.tacc.chameleoncloud.org:5000
       
-      application_credential_id: "b486ae41d4414392b51a1c7b185cf86a"
-      application_credential_secret: "qNuI0YRuQ-4Dn1gMOfxQ0igEEdQAdOAtgR861DDjxDvE3dJ9Z7EG_tVw8v1f619hUQ5YytEXRxA_Y8eBhJYB7A"
+      application_credential_id: "${{ secrets.OS_APP_CRED_ID }}"
+      application_credential_secret: "${{ secrets.OS_APP_CRED_SECRET }}"
     
       
         
