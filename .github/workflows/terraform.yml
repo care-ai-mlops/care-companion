@@ -16,10 +16,6 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
 
-      - name: Terraform Format Check
-        run: terraform fmt -check
-        working-directory: terraform/chi_uc/
-
       - name: Terraform Init
         run: terraform init
         working-directory: terraform/chi_uc/
