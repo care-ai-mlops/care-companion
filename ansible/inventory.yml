@@ -1,6 +1,7 @@
 all:
   vars:
     ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_common_args: '-o ConnectTimeout=30'
   hosts:
     node1:
       ansible_host: 192.168.1.11
