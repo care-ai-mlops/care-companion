@@ -179,3 +179,5 @@ cython_debug/
 **/pyproject.toml
 
 **/.python-version
+
+**/uv.lock
