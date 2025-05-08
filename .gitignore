@@ -175,3 +175,7 @@ cython_debug/
 
 # MacOS Finder metadata file
 **/.DS_Store
+
+**/pyproject.toml
+
+**/.python-version
