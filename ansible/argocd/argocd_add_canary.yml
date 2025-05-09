@@ -1,15 +1,14 @@
 ---
-- name: Deploy Gourmetgram Canary via ArgoCD & Helm
+- name: Deploy Care Companion Canary via ArgoCD & Helm
   hosts: node1
   become: yes
   vars:
-    app_name: gourmetgram-canary
-    repo_url: https://github.com/teaching-on-testbeds/gourmetgram-iac.git
+    app_name: care-companion-canary
+    repo_url: https://github.com/care-ai-mlops/care-companion.git
     app_path: k8s/canary
     argocd_namespace: argocd
 
   tasks:
-
     - name: Get ArgoCD admin password
       command: >
         kubectl get secret -n {{ argocd_namespace }} argocd-initial-admin-secret \
@@ -31,8 +30,8 @@
       set_fact:
         external_ip: "{{ ansible_all_ipv4_addresses | select('match', '^10\\.56\\..*') | list | first }}"
 
-    - name: Create gourmetgram-canary namespace if missing
-      command: kubectl create namespace gourmetgram-canary
+    - name: Create care-companion-canary namespace if missing
+      command: kubectl create namespace care-companion-canary
       register: ns_create
       failed_when: ns_create.rc != 0 and "AlreadyExists" not in ns_create.stderr
       changed_when: "'created' in ns_create.stdout"

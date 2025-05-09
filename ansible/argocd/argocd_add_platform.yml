@@ -1,18 +1,19 @@
 ---
-- name: Deploy MLflow platform via ArgoCD & Helm with MinIO secret handling
+- name: Deploy Care Companion platform via ArgoCD & Helm with MinIO secret handling
   hosts: node1
   become: yes
   vars:
     argocd_username: "admin"
-    repo_path: "https://github.com/teaching-on-testbeds/gourmetgram-iac.git"
-    app_name: "gourmetgram-platform"
+    repo_path: "https://github.com/care-ai-mlops/care-companion.git"
+    app_name: "care-companion-platform"
     app_path: "k8s/platform"
+    argocd_namespace: "argocd"
     minio_access_key: "your-access-key"
 
   tasks:
     - name: Get ArgoCD admin password from Kubernetes secret
       command: >
-        kubectl get secret -n argocd argocd-initial-admin-secret \
+        kubectl get secret -n {{ argocd_namespace }} argocd-initial-admin-secret \
         -o jsonpath="{.data.password}"
       register: argocd_password_base64
 
@@ -37,18 +38,18 @@
       set_fact:
         external_ip: "{{ ansible_all_ipv4_addresses | select('match', '^10\\.56\\..*') | list | first }}"
 
-    - name: Ensure gourmetgram-platform namespace exists
-      command: kubectl get namespace gourmetgram-platform
+    - name: Ensure care-companion-platform namespace exists
+      command: kubectl get namespace care-companion-platform
       register: ns_check
       failed_when: false
       changed_when: false
 
-    - name: Create gourmetgram-platform namespace if missing
+    - name: Create care-companion-platform namespace if missing
       when: ns_check.rc != 0
-      command: kubectl create namespace gourmetgram-platform
+      command: kubectl create namespace care-companion-platform
 
     - name: Check if MinIO secret already exists
-      command: kubectl get secret minio-credentials -n gourmetgram-platform
+      command: kubectl get secret minio-credentials -n care-companion-platform
       register: minio_secret_check
       failed_when: false
       changed_when: false
@@ -62,7 +63,7 @@
       when: minio_secret_check.rc != 0
       command: >
         kubectl create secret generic minio-credentials
-        --namespace gourmetgram-platform
+        --namespace care-companion-platform
         --from-literal=accesskey={{ minio_access_key }}
         --from-literal=secretkey={{ minio_secret_key }}
       register: minio_secret_create
@@ -70,7 +71,7 @@
     - name: Get existing MinIO secret key if already exists
       when: minio_secret_check.rc == 0
       command: >
-        kubectl get secret minio-credentials -n gourmetgram-platform -o jsonpath="{.data.secretkey}"
+        kubectl get secret minio-credentials -n care-companion-platform -o jsonpath="{.data.secretkey}"
       register: existing_secret_b64
 
     - name: Decode existing MinIO secret key
@@ -92,7 +93,7 @@
         --repo {{ repo_path }} \
         --path {{ app_path }} \
         --dest-server https://kubernetes.default.svc \
-        --dest-namespace "" \
+        --dest-namespace care-companion-platform-project51 \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd \
@@ -103,7 +104,7 @@
       when: app_check.rc == 0
       command: >
         argocd app set {{ app_name }} \
-        --dest-namespace "" \
+        --dest-namespace care-companion-platform-project51 \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd
@@ -114,3 +115,12 @@
         msg: |
           MinIO Access Key: {{ minio_access_key }}
           MinIO Secret Key: {{ minio_secret_key }}
+
+    - name: Display ArgoCD app status
+      command: argocd app get {{ app_name }} --port-forward --port-forward-namespace={{ argocd_namespace }}
+      register: final_status
+
+    - name: Display ArgoCD app Final Status
+      debug:
+        msg: |
+          ArgoCD App Final Status: {{ final_status.stdout }}
