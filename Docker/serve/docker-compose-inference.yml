@@ -1,0 +1,128 @@
+name: inference_service
+services:
+  triton_server:
+    build:
+      context: ~/github_repos/care-companion/
+      dockerfile: Docker/serve/Dockerfile.triton
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+        - DOCKER_BUILDKIT=1
+    container_name: triton_server
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    expose:
+      - "8000"  # for HTTP requests
+      - "8001"  # for GRPC requests
+      - "8002"  # for reporting metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v2/health/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+  fastapi:
+    build:
+      context: ~/github_repos/care-companion/
+      dockerfile: Docker/serve/Dockerfile.fastapi
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+        - DOCKER_BUILDKIT=1
+    container_name: fastapi_server
+    ports:
+      - "5000:5000"
+    environment:
+      - TRITON_SERVER_URL=triton_server:8000
+    depends_on:
+      triton_server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alertmanager.yml:/etc/prometheus/alertmanager.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - inference_network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+
+networks:
+  inference_network:
+    driver: bridge
