@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.12-slim-buster
+FROM python:3.12-slim
 
 # Set the working directory to /app
 WORKDIR /app
@@ -7,13 +7,13 @@ WORKDIR /app
 # Copy the requirements.txt into the container at /app
 # we do this separately so that the "expensive" build step (pip install)
 # does not need to be repeated if other files in /app change.
-COPY utils/requirements/inference_requirements.txt /app
+COPY utils/requirements/inference_requirements.txt /app/requirements.txt
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir --trusted-host pypi.python.org -r requirements.txt
 
 # Copy the current directory contents into the container at /app
-COPY src/inference_server/ /app
+COPY src/inference_server /app
 
 # Expose the port on which the app will run
 EXPOSE 5000

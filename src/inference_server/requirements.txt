@@ -1,0 +1,7 @@
+numpy
+fastapi
+uvicorn
+tritonclient[all]
+prometheus-client
+python-multipart
+mlflow==2.20.2
