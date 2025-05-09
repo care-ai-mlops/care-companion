@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 import tritonclient.http as httpclient
 import numpy as np
 from typing import Dict, Any
 import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,9 +16,16 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(title="Care Companion Inference Server")
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Get Triton server URL from environment variable
+TRITON_SERVER_URL = os.getenv("TRITON_SERVER_URL", "localhost:8000")
+
 # Initialize Triton client
 try:
-    triton_client = httpclient.InferenceServerClient(url="localhost:8000")
+    triton_client = httpclient.InferenceServerClient(url=TRITON_SERVER_URL)
+    logger.info(f"Connected to Triton server at {TRITON_SERVER_URL}")
 except Exception as e:
     logger.error(f"Failed to connect to Triton server: {e}")
     raise
