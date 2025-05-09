@@ -202,9 +202,9 @@ def verify_onnx_model(onnx_path: str, dummy_input: torch.Tensor, torch_model: nn
     # Compare the results
     try:
         np.testing.assert_allclose(torch_output, ort_outputs[0], rtol=1e-03, atol=1e-05)
-        print("✅ ONNX model verified successfully!")
+        print("ONNX model verified successfully!")
     except AssertionError as e:
-        print(f"❌ ONNX model verification failed: {e}")
+        print(f"ONNX model verification failed: {e}")
         print(f"PyTorch output shape: {torch_output.shape}, ONNX output shape: {ort_outputs[0].shape}")
         print(f"PyTorch output (first few values): {torch_output.flatten()[:5]}")
         print(f"ONNX output (first few values): {ort_outputs[0].flatten()[:5]}")
