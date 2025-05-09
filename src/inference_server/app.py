@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 import tritonclient.http as httpclient
 import numpy as np
@@ -18,6 +18,11 @@ app = FastAPI(title="Care Companion Inference Server")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def read_root():
+    """Serve the main HTML page"""
+    return FileResponse("static/index.html")
 
 # Get Triton server URL from environment variable
 TRITON_SERVER_URL = os.getenv("TRITON_SERVER_URL", "localhost:8000")
@@ -41,7 +46,7 @@ async def health_check():
         # Check if Triton server is ready
         if not triton_client.is_server_ready():
             raise HTTPException(status_code=503, detail="Triton server is not ready")
-        return {"status": "healthy", "triton_status": "ready"}
+        return JSONResponse({"status": "healthy", "triton_status": "ready"})
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail=str(e))
@@ -77,8 +82,22 @@ async def predict_chest(data: Dict[str, Any]):
         if not image_data:
             raise HTTPException(status_code=400, detail="No image data provided")
 
-        # Convert image data to numpy array
+        # Convert image data to numpy array and ensure correct shape
         input_data = np.array(image_data, dtype=np.float32)
+        
+        # Reshape the input to match model's expected input shape [batch_size, channels, height, width]
+        # If input is flat array, reshape it to [1, 3, 224, 224]
+        if len(input_data.shape) == 1:
+            input_data = input_data.reshape(1, 3, 224, 224)
+        elif len(input_data.shape) == 3:
+            input_data = input_data.reshape(1, *input_data.shape)
+        
+        # Ensure batch size doesn't exceed model's max_batch_size
+        if input_data.shape[0] > 16:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Batch size {input_data.shape[0]} exceeds maximum allowed batch size of 16"
+            )
         
         # Prepare input for Triton
         inputs = [
@@ -88,12 +107,12 @@ async def predict_chest(data: Dict[str, Any]):
 
         # Send inference request to Triton
         response = triton_client.infer(
-            model_name="chest_model",  # Replace with your actual model name
+            model_name="chest",
             inputs=inputs
         )
 
         # Get prediction results
-        output = response.as_numpy("output")  # Replace "output" with your model's output name
+        output = response.as_numpy("output")
         
         PREDICTION_LATENCY.observe(time.time() - start_time)
         return {"prediction": output.tolist()}

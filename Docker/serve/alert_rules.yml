@@ -64,4 +64,24 @@ groups:
           severity: warning
         annotations:
           summary: "High error rate in predictions"
-          description: "Error rate is above 10% for the last 5 minutes." 
+          description: "Error rate is above 10% for the last 5 minutes."
+
+  - name: inference_service
+    rules:
+      - alert: HighPredictionLatency
+        expr: prediction_latency_seconds > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High prediction latency detected
+          description: "Prediction latency is above 1 second for 5 minutes"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Service is down
+          description: "Service {{ $labels.job }} has been down for more than 1 minute" 

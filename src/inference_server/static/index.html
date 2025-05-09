@@ -101,7 +101,7 @@
                 const imageData = await getImageData(file);
                 
                 // Send to server
-                const response = await fetch('/predict_chest', {
+                const response = await fetch('http://localhost:5000/predict_chest', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -134,19 +134,25 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
+                        // Resize image to match model's expected input size
+                        canvas.width = 224;
+                        canvas.height = 224;
                         const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
+                        ctx.drawImage(img, 0, 0, 224, 224);
                         
                         // Get image data and convert to array
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const pixels = Array.from(imageData.data);
+                        const imageData = ctx.getImageData(0, 0, 224, 224);
+                        const pixels = imageData.data;
                         
-                        // Normalize pixel values to [0, 1]
-                        const normalizedPixels = pixels.map(p => p / 255.0);
+                        // Convert RGBA to RGB and normalize to [0, 1]
+                        const rgbPixels = [];
+                        for (let i = 0; i < pixels.length; i += 4) {
+                            rgbPixels.push(pixels[i] / 255.0);     // R
+                            rgbPixels.push(pixels[i + 1] / 255.0); // G
+                            rgbPixels.push(pixels[i + 2] / 255.0); // B
+                        }
                         
-                        resolve(normalizedPixels);
+                        resolve(rgbPixels);
                     };
                     img.onerror = reject;
                     img.src = e.target.result;
