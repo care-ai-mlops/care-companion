@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Ray metrics
+  - job_name: 'ray-head'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'ray-training'
+    static_configs:
+      - targets: ['${CHI_TRAINING_IP}:9090']
+
+  - job_name: 'ray-serving'
+    static_configs:
+      - targets: ['${CHI_SERVING_IP}:9090']
+
+  # FastAPI metrics
+  - job_name: 'fastapi-serving'
+    static_configs:
+      - targets: ['${CHI_SERVING_IP}:8000']
+    metrics_path: '/metrics'
+
+  # Triton metrics
+  - job_name: 'triton-serving'
+    static_configs:
+      - targets: ['${CHI_SERVING_IP}:8002']
+    metrics_path: '/metrics'
+
+  # Node metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']

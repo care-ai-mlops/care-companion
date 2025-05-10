@@ -75,6 +75,21 @@ services:
       mlflow server --backend-store-uri postgresql://user:password@postgres/mlflowdb 
       --artifacts-destination s3://mlflow-artifacts/ --serve-artifacts --host 0.0.0.0 --port 8000"
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /mnt/block/prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    restart: always
+
   ray-head:
     image: rayproject/ray:2.42.1
     container_name: ray-head
@@ -82,26 +97,26 @@ services:
       /bin/sh -c "
       mkdir -p /tmp/ray && 
       chown -R root:root /tmp/ray &&
-      ray metrics launch-prometheus &&
       ray start --head --port=6379 --dashboard-host=0.0.0.0 --block --metrics-export-port=8080"
     ports:
       - "6379:6379" 
       - "8265:8265" 
       - "8080:8080" 
       - "8090:8090" 
-      - "9090:9090" 
     shm_size: '12g'
     volumes:
       - /mnt/block/ray_tmp:/tmp/ray
     environment:
       - RAY_GRAFANA_HOST=http://grafana:3000
       - RAY_GRAFANA_IFRAME_HOST=http://${HOST_IP}:3000
-      - RAY_PROMETHEUS_HOST=http://ray-head:9090
+      - RAY_PROMETHEUS_HOST=http://prometheus:9090
       - RAY_PROMETHEUS_NAME=Prometheus
-      - AWS_ACCESS_KEY_ID=your-access-key     # for MinIO access
+      - AWS_ACCESS_KEY_ID=your-access-key
       - AWS_SECRET_ACCESS_KEY=your-secret-key
       - AWS_ENDPOINT_URL=http://minio:9000
     user: root
+    depends_on:
+      - prometheus
 
   grafana:
     image: grafana/grafana:latest
@@ -114,6 +129,10 @@ services:
         sleep 2
       done
       
+      # Copy datasources configuration
+      mkdir -p /etc/grafana/provisioning/datasources
+      cp /etc/grafana/datasources.yml /etc/grafana/provisioning/datasources/
+      
       # Start Grafana with copied config
       /run.sh --config /tmp/ray/session_latest/metrics/grafana/grafana.ini"
     ports:
@@ -121,9 +140,10 @@ services:
     volumes:
       - /mnt/block/grafana:/var/lib/grafana
       - /mnt/block/ray_tmp:/tmp/ray:ro
+      - ./grafana-datasources.yml:/etc/grafana/datasources.yml:ro
     environment:
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
-      - GF_PATHS_PROVISIONING=/tmp/ray/session_latest/metrics/grafana/provisioning
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - GF_SERVER_HTTP_ADDR=0.0.0.0
       - GF_DATABASE_TYPE=sqlite3
       - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -134,6 +154,7 @@ services:
       - GF_AUTH_PROXY_AUTO_SIGN_UP=true
     depends_on:
       - ray-head
+      - prometheus
 
   ray-worker-0:
     image: rayproject/ray:2.42.1-gpu
@@ -183,3 +204,4 @@ volumes:
   grafana_storage:
   ray_tmp:
   minio_data:
+  prometheus_data:
