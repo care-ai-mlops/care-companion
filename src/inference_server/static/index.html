@@ -40,6 +40,31 @@
             background-color: #f8d7da;
             color: #721c24;
         }
+        .probability-bar {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .probability-label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        .probability-value {
+            display: inline-block;
+            width: 100px;
+            text-align: right;
+        }
+        .probability-percentage {
+            display: inline-block;
+            width: 60px;
+            text-align: right;
+        }
+        .highest-probability {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
         button {
             background-color: #007bff;
             color: white;
@@ -114,7 +139,26 @@
                 const data = await response.json();
                 
                 // Display result
-                resultDiv.textContent = `Analysis Result: ${JSON.stringify(data.prediction)}`;
+                let resultHTML = '<h3>Analysis Results:</h3>';
+                const probabilities = data.probabilities;
+                
+                // Find the highest probability
+                const highestProb = Math.max(...Object.values(probabilities));
+                
+                // Create probability bars for each class
+                for (const [className, probability] of Object.entries(probabilities)) {
+                    const percentage = (probability * 100).toFixed(2);
+                    const isHighest = probability === highestProb;
+                    resultHTML += `
+                        <div class="probability-bar ${isHighest ? 'highest-probability' : ''}">
+                            <span class="probability-label">${className}:</span>
+                            <span class="probability-value">${probability.toFixed(4)}</span>
+                            <span class="probability-percentage">${percentage}%</span>
+                        </div>
+                    `;
+                }
+                
+                resultDiv.innerHTML = resultHTML;
                 resultDiv.className = 'success';
                 resultDiv.style.display = 'block';
             } catch (error) {
@@ -152,7 +196,9 @@
                             rgbPixels.push(pixels[i + 2] / 255.0); // B
                         }
                         
-                        resolve(rgbPixels);
+                        // Convert to base64 for sending
+                        const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+                        resolve(base64Image);
                     };
                     img.onerror = reject;
                     img.src = e.target.result;

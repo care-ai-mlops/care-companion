@@ -1,7 +1,0 @@
-torch
-torchinfo
-torchvision
-numpy
-mlflow==2.20.2
-onnxruntime-gpu
-onnx
