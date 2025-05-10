@@ -72,7 +72,7 @@
       "id": 1,
       "options": {
         "legend": {
-          "calcs": ["mean", "max", "p95"],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
