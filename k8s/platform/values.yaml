@@ -3,3 +3,97 @@ minio:
 
 mlflow:
   externalIP: "0.0.0.0"
+
+
+chiNode:
+  ip: "192.168.1.11"  # CHI@UC node1 IP
+  floatingIP: ""      
+
+# helm upgrade --install platform ./k8s/platform \
+#      --set chiNode.ip="YOUR_NEW_IP" \
+#      -n kube-system
+
+
+kvmNode:
+  headIP: "192.168.1.11"  # KVM@TACC node1 IP (Ray head)
+  workerIPs:             # KVM@TACC worker nodes
+    - "192.168.1.12"     # node2
+    - "192.168.1.13"     # node3
+
+blockStorage:
+  node: "node1-mlops-${suffix}"
+  grafanaSize: "4Gi"
+  prometheusSize: "5Gi"
+  labelstudioSize: "10Gi"
+  raySize: "900Gi"
+
+rayhead:
+  ip: "{{ .Values.chiNode.ip }}"  # Use CHI@UC node IP
+  externalIP: "{{ .Values.chiNode.floatingIP }}"  # Use CHI@UC floating IP
+
+csiRclone:
+  remoteName: chi_tacc
+  image: ghcr.io/merainc/csi-rclone:v0.5.0
+  container: "object-persist-project51"
+  rcloneConf: ""
+
+prometheus:
+  fullnameOverride: prometheus
+  promtheus:
+    prometheusSpec:
+      serviceMonitorSelectorNilUsesHelmValues: false
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: local-block
+            resources:
+              requests:
+                storage: {{ .Values.blockStorage.prometheusSize }}
+  grafana:
+    enabled: false
+
+grafana:
+  admin: {existingSecret: grafana-admin}
+  ingress: {enabled: true}
+  service: {type: ClusterIP, ports: {grafana: 3000}}
+  env:
+    GF_SECURITY_ADMIN_PASSWORD: "{{ .Values.grafana.admin.password }}"
+  extraConfigmapMounts:
+    - name: ray-dashboards
+      configMap: ray-grafana-dashboards
+      mountPath: /var/lib/grafana/dashboards
+      readOnly: true
+  persistence:
+    enabled: true
+    storageClassName: local-block
+    existingClaim: 
+    size: {{ .Values.blockStorage.grafanaSize }}
+
+labelStudio:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  persistence:
+    enabled: true
+    size: {{ .Values.blockStorage.labelstudioSize }}
+    storageClassName: local-block
+    existingClaim: 
+
+kube-ray:
+  operatorImage:
+    repository: ray-project/kuberay-operator
+    tag: v0.1.0
+  operatorReplicas: 1
+  operatorServiceAccount: ray-operator
+  operatorReplicas: 1
+  operatorServiceAccount: ray-operator
+
+
+
+
+# Inject rclone.conf into the cluster while installing the platform
+# helm upgrade --install platform ./k8s/platform \
+#   -n kube-system \
+#   --set-file csiRclone.rcloneConf=/path/to/rclone.conf 

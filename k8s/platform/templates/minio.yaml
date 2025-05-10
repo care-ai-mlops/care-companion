@@ -3,19 +3,24 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: minio-pvc
-  namespace: gourmetgram-platform
+  namespace: care-companion-platform
+  annotations:
+    csi-rclone/storage-path: minio
+    csi-rclone/unmask: "022"
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
-      storage: 5Gi
+      storage: 20Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: minio
-  namespace: gourmetgram-platform
+  namespace: care-companion-platform
+  labels:
+    app: minio
 spec:
   replicas: 1
   selector:
@@ -56,7 +61,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: minio
-  namespace: gourmetgram-platform
+  namespace: care-companion-platform
 spec:
   selector:
     app: minio
@@ -74,7 +79,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: minio-create-bucket
-  namespace: gourmetgram-platform
+  namespace: care-companion-platform
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded

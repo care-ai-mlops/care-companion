@@ -1,0 +1,138 @@
+---
+# Network policy for Ray head service on CHI@UC
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ray-head-policy
+  namespace: ray
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/node-type: head
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              ray.io/node-type: worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 8265  # Dashboard
+        - protocol: TCP
+          port: 8080  # Metrics
+        - protocol: TCP
+          port: 10001 # Client
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              ray.io/node-type: worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 8265
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 10001
+---
+# Network policy for Ray workers on KVM@TACC
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ray-worker-policy
+  namespace: ray
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/node-type: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              ray.io/node-type: head
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 8265
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 10001
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              ray.io/node-type: head
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 8265
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 10001
+---
+# Network policy for object storage access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: object-storage-policy
+  namespace: ray
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/node-type: worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.chiNode.ip }}/32  # CHI@UC node IP
+      ports:
+        - protocol: TCP
+          port: 9000  # MinIO port
+---
+# Network policy for GPU operator
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gpu-operator-policy
+  namespace: gpu-operator
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gpu-operator
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 9400  # GPU metrics port
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray
+      ports:
+        - protocol: TCP
+          port: 9400 
