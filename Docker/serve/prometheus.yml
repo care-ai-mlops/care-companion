@@ -13,19 +13,6 @@ scrape_configs:
       - targets: ['triton_server:8002']
     metrics_path: '/metrics'
 
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-    metrics_path: '/metrics'
-    metric_relabel_configs:
-      - source_labels: [__name__]
-        regex: 'grafana_.*'
-        action: keep
-
 alerting:
   alertmanagers:
     - static_configs:
