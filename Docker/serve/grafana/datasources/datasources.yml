@@ -1,0 +1,28 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    version: 1
+    uid: prometheus
+    jsonData:
+      timeInterval: 5s
+      queryTimeout: 30s
+      httpMethod: GET
+      manageAlerts: true
+      cacheLevel: "none"
+      defaultEditor: "code"
+      customQueryParameters: "max_source_resolution=auto"
+      basicAuth: false
+      basicAuthUser: ""
+      basicAuthPassword: ""
+      withCredentials: false
+      tlsAuth: false
+      tlsAuthWithCACert: false
+      tlsSkipVerify: true
+    secureJsonData:
+      {} 

@@ -7,6 +7,8 @@ from typing import Dict, Any
 import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest
+from prometheus_client.openmetrics.exposition import generate_latest as generate_latest_openmetrics
+from prometheus_fastapi_instrumentator import Instrumentator
 import os
 from PIL import Image
 import io
@@ -17,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(title="Care Companion Inference Server")
+
+# Initialize Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
