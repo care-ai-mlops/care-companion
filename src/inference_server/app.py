@@ -8,6 +8,8 @@ import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest
 import os
+from PIL import Image
+import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +20,23 @@ app = FastAPI(title="Care Companion Inference Server")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+def preprocess_image(image: Image.Image) -> np.ndarray:
+    """Preprocess image using NumPy operations"""
+    # Resize image
+    image = image.resize((224, 224), Image.Resampling.BILINEAR)
+    # Convert to numpy array and normalize to [0, 1]
+    img_array = np.array(image, dtype=np.float32) / 255.0
+    # Add batch dimension and ensure correct shape (B, C, H, W)
+    img_array = np.transpose(img_array, (2, 0, 1))[np.newaxis, ...]
+    return img_array
+
+def softmax(x: np.ndarray) -> np.ndarray:
+    """Compute softmax values for each set of scores in x"""
+    # Subtract max for numerical stability
+    x = x - np.max(x, axis=1, keepdims=True)
+    exp_x = np.exp(x)
+    return exp_x / np.sum(exp_x, axis=1, keepdims=True)
 
 @app.get("/")
 async def read_root():
@@ -38,6 +57,8 @@ except Exception as e:
 # Prometheus metrics
 PREDICTION_LATENCY = Histogram('prediction_latency_seconds', 'Time spent processing predictions')
 PREDICTION_COUNTER = Counter('prediction_total', 'Total number of predictions made')
+TRITON_INFERENCE_LATENCY = Histogram('triton_inference_latency_seconds', 'Time spent in Triton server inference')
+TRITON_INFERENCE_ERRORS = Counter('triton_inference_errors_total', 'Total number of Triton inference errors')
 
 @app.get("/health")
 async def health_check():
@@ -54,7 +75,7 @@ async def health_check():
 @app.get("/home")
 async def home():
     """Home endpoint"""
-    return {
+    return JSONResponse({
         "message": "Welcome to Care Companion Inference Server",
         "endpoints": {
             "health": "/health",
@@ -63,7 +84,7 @@ async def home():
             "predict_wrist": "/predict_wrist",
             "gen_report": "/gen_report"
         }
-    }
+    })
 
 @app.get("/metrics")
 async def metrics():
@@ -82,15 +103,20 @@ async def predict_chest(data: Dict[str, Any]):
         if not image_data:
             raise HTTPException(status_code=400, detail="No image data provided")
 
-        # Convert image data to numpy array and ensure correct shape
-        input_data = np.array(image_data, dtype=np.float32)
-        
-        # Reshape the input to match model's expected input shape [batch_size, channels, height, width]
-        # If input is flat array, reshape it to [1, 3, 224, 224]
-        if len(input_data.shape) == 1:
-            input_data = input_data.reshape(1, 3, 224, 224)
-        elif len(input_data.shape) == 3:
-            input_data = input_data.reshape(1, *input_data.shape)
+        # Convert base64 image data to PIL Image
+        try:
+            import base64
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(io.BytesIO(image_bytes))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
+
+        # Convert to RGB if grayscale
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        # Preprocess image using NumPy
+        input_data = preprocess_image(image)
         
         # Ensure batch size doesn't exceed model's max_batch_size
         if input_data.shape[0] > 16:
@@ -105,17 +131,35 @@ async def predict_chest(data: Dict[str, Any]):
         ]
         inputs[0].set_data_from_numpy(input_data)
 
-        # Send inference request to Triton
-        response = triton_client.infer(
-            model_name="chest",
-            inputs=inputs
-        )
+        # Send inference request to Triton and measure inference time
+        triton_start_time = time.time()
+        try:
+            response = triton_client.infer(
+                model_name="chest",
+                inputs=inputs
+            )
+            TRITON_INFERENCE_LATENCY.observe(time.time() - triton_start_time)
+        except Exception as e:
+            TRITON_INFERENCE_ERRORS.inc()
+            raise HTTPException(status_code=503, detail=f"Triton inference failed: {str(e)}")
 
-        # Get prediction results
+        # Get prediction results and convert to probabilities using NumPy
         output = response.as_numpy("output")
+        probabilities = softmax(output)
+        
+        # Create class mapping
+        class_mapping = {0: "NORMAL", 1: "PNEUMONIA", 2: "TUBERCULOSIS"}
+        
+        # Convert probabilities to dictionary with class labels
+        result = {
+            "probabilities": {
+                class_mapping[i]: float(prob) 
+                for i, prob in enumerate(probabilities[0])
+            }
+        }
         
         PREDICTION_LATENCY.observe(time.time() - start_time)
-        return {"prediction": output.tolist()}
+        return JSONResponse(result)
     except Exception as e:
         logger.error(f"Chest prediction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
