@@ -1,5 +1,5 @@
 ---
-- name: Deploy MLflow platform via ArgoCD & Helm with MinIO secret handling
+- name: Deploy Care Companion platform via ArgoCD & Helm with MinIO secret handling
   hosts: node1
   become: yes
   vars:
@@ -7,12 +7,13 @@
     repo_path: "https://github.com/care-ai-mlops/care-companion.git"
     app_name: "care-companion-platform"
     app_path: "k8s/platform"
+    argocd_namespace: "argocd"
     minio_access_key: "your-access-key"
 
   tasks:
     - name: Get ArgoCD admin password from Kubernetes secret
       command: >
-        kubectl get secret -n argocd argocd-initial-admin-secret \
+        kubectl get secret -n {{ argocd_namespace }} argocd-initial-admin-secret \
         -o jsonpath="{.data.password}"
       register: argocd_password_base64
 
@@ -92,7 +93,7 @@
         --repo {{ repo_path }} \
         --path {{ app_path }} \
         --dest-server https://kubernetes.default.svc \
-        --dest-namespace "" \
+        --dest-namespace care-companion-platform \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd \
@@ -103,7 +104,7 @@
       when: app_check.rc == 0
       command: >
         argocd app set {{ app_name }} \
-        --dest-namespace "" \
+        --dest-namespace care-companion-platform \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd
@@ -114,3 +115,12 @@
         msg: |
           MinIO Access Key: {{ minio_access_key }}
           MinIO Secret Key: {{ minio_secret_key }}
+
+    - name: Display ArgoCD app status
+      command: argocd app get {{ app_name }} --port-forward --port-forward-namespace={{ argocd_namespace }}
+      register: final_status
+
+    - name: Display ArgoCD app Final Status
+      debug:
+        msg: |
+          ArgoCD App Final Status: {{ final_status.stdout }}

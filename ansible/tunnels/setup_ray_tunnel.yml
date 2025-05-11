@@ -1,0 +1,40 @@
+---
+- name: Setup Ray SSH tunnels from kvm_tacc to chi_uc
+  hosts: node1
+  vars:
+    chi_uc_user: "{{ lookup('env', 'CHI_UC_USER') | default('cc') }}"
+    chi_uc_host: "{{ lookup('env', 'FLOATING_IP_CHI_UC') }}"
+    local_ip: "{{ ansible_host }}"
+    remote_ip: "192.168.1.10"
+    ray_dashboard_port: 8265
+    ray_client_port: 10001
+
+  tasks:
+    - name: Check if SSH tunnel is already running
+      shell: ps aux | grep "ssh -NL {{ local_ip }}:{{ ray_dashboard_port }}" | grep -v grep
+      register: tunnel_check
+      changed_when: false
+      failed_when: false
+
+    - name: Create SSH tunnel for Ray dashboard and client ports
+      shell: >
+        ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -NL {{ local_ip }}:{{ ray_dashboard_port }}:{{ remote_ip }}:{{ ray_dashboard_port }} 
+        -L {{ local_ip }}:{{ ray_client_port }}:{{ remote_ip }}:{{ ray_client_port }} 
+        {{ chi_uc_user }}@{{ chi_uc_host }} &
+      args:
+        executable: /bin/bash
+      when: tunnel_check.rc != 0
+      register: tunnel_result
+
+    - name: Wait for tunnel to establish
+      wait_for:
+        host: "{{ local_ip }}"
+        port: "{{ ray_dashboard_port }}"
+        timeout: 30
+      ignore_errors: yes
+      when: tunnel_check.rc != 0
+
+    - name: Display tunnel status
+      debug:
+        msg: "Ray tunnels established on {{ local_ip }} for ports {{ ray_dashboard_port }} (dashboard) and {{ ray_client_port }} (client)"
+      when: tunnel_check.rc != 0 

@@ -18,6 +18,9 @@ data "openstack_networking_secgroup_v2" "allow_8000" {
   name = "allow-8000"
 }
 
+data "openstack_networking_secgroup_v2" "allow_8080" {
+  name = "allow-8080"
+}
 
 data "openstack_networking_secgroup_v2" "allow_8081" {
   name = "allow-8081"
