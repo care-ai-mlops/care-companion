@@ -80,6 +80,71 @@
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        .toggle-container {
+            margin: 10px 0;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:focus + .slider {
+            box-shadow: 0 0 1px #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .loading {
+            display: inline-block;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -87,7 +152,18 @@
         <h1>Chest Image Analysis</h1>
         <div class="upload-section">
             <input type="file" id="imageInput" accept="image/*">
+            <div class="toggle-container">
+                <label class="switch">
+                    <input type="checkbox" id="useGpu">
+                    <span class="slider"></span>
+                </label>
+                <span id="modelLabel">Use GPU model: Off</span>
+            </div>
             <button id="analyzeBtn" disabled>Analyze Image</button>
+            <div id="loadingIndicator" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <span>Processing...</span>
+            </div>
         </div>
         <img id="imagePreview" alt="Preview">
         <div id="result"></div>
@@ -98,6 +174,14 @@
         const analyzeBtn = document.getElementById('analyzeBtn');
         const imagePreview = document.getElementById('imagePreview');
         const resultDiv = document.getElementById('result');
+        const useGpuToggle = document.getElementById('useGpu');
+        const modelLabel = document.getElementById('modelLabel');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // Update model label when toggle changes
+        useGpuToggle.addEventListener('change', function() {
+            modelLabel.textContent = `Use GPU model: ${this.checked ? 'On' : 'Off'}`;
+        });
 
         // Enable analyze button when an image is selected
         imageInput.addEventListener('change', function(e) {
@@ -121,12 +205,16 @@
             try {
                 analyzeBtn.disabled = true;
                 resultDiv.style.display = 'none';
+                loadingIndicator.style.display = 'inline-block';
 
                 // Convert image to array of pixel values
                 const imageData = await getImageData(file);
                 
-                // Send to server
-                const response = await fetch('http://129.114.108.106:5000/predict_chest', {
+                // Get the GPU toggle state
+                const useGpu = useGpuToggle.checked;
+                
+                // Send to server using relative path with query parameter
+                const response = await fetch(`http://129.114.108.94:5000/predict_chest?use_gpu=${useGpu}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -136,10 +224,16 @@
                     })
                 });
 
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Server error occurred');
+                }
+
                 const data = await response.json();
                 
                 // Display result
                 let resultHTML = '<h3>Analysis Results:</h3>';
+                resultHTML += `<p>Model used: ${useGpu ? 'GPU' : 'CPU (OpenVINO)'}</p>`;
                 const probabilities = data.probabilities;
                 
                 // Find the highest probability
@@ -162,11 +256,13 @@
                 resultDiv.className = 'success';
                 resultDiv.style.display = 'block';
             } catch (error) {
-                resultDiv.textContent = `Error: ${error.message}`;
+                resultDiv.textContent = `Error: ${error.message || 'Failed to analyze image'}`;
                 resultDiv.className = 'error';
                 resultDiv.style.display = 'block';
+                console.error('Analysis error:', error);
             } finally {
                 analyzeBtn.disabled = false;
+                loadingIndicator.style.display = 'none';
             }
         });
 
@@ -209,4 +305,4 @@
         }
     </script>
 </body>
-</html> 
+</html>

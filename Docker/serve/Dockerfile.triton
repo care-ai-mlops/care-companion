@@ -1,6 +1,11 @@
 # Use NVIDIA Triton base image
 FROM nvcr.io/nvidia/tritonserver:24.10-py3
 
+# Install OpenVINO dependencies
+RUN apt-get update && apt-get install -y \
+    openvino \
+    && rm -rf /var/lib/apt/lists/*
+
 # Expose Triton ports
 EXPOSE 8000 8001 8002
 
