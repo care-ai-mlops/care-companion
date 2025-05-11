@@ -2,7 +2,7 @@ name: inference_service
 services:
   triton_server:
     build:
-      context: ~/github_repos/care-companion/
+      context: ../..
       dockerfile: Docker/serve/Dockerfile.triton
       args:
         - BUILDKIT_INLINE_CACHE=1
@@ -18,7 +18,8 @@ services:
     expose:
       - "8000"  # for HTTP requests
       - "8001"  # for GRPC requests
-      - "8002"  # for reporting metrics
+    ports:
+      - "8002:8002"  # for reporting metrics
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/v2/health/ready"]
       interval: 2s
@@ -30,7 +31,7 @@ services:
 
   fastapi:
     build:
-      context: ~/github_repos/care-companion/
+      context: ../..
       dockerfile: Docker/serve/Dockerfile.fastapi
       args:
         - BUILDKIT_INLINE_CACHE=1
@@ -45,10 +46,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 2s
-      timeout: 2s
-      retries: 15
-      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - inference_network

@@ -126,7 +126,7 @@
                 const imageData = await getImageData(file);
                 
                 // Send to server
-                const response = await fetch('http://localhost:5000/predict_chest', {
+                const response = await fetch('http://129.114.108.106:5000/predict_chest', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
