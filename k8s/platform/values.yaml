@@ -3,3 +3,6 @@ minio:
 
 mlflow:
   externalIP: "0.0.0.0"
+
+grafana:
+  externalIP: "129.114.25.12"
