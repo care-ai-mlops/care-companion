@@ -49,7 +49,7 @@ spec:
             - |
               pip install psycopg2-binary boto3 &&
               mlflow server --backend-store-uri $POSTGRES_URI \
-              --artifacts-destination s3://mlflow-artifacts/ --serve-artifacts --host 0.0.0.0 --port 8000 --app-name basic-auth
+              --artifacts-destination s3://mlflow-artifacts/ --serve-artifacts --host 0.0.0.0 --port 8000 
 
 ---
 apiVersion: v1
