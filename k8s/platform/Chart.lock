@@ -2,11 +2,5 @@ dependencies:
 - name: postgresql
   repository: https://charts.bitnami.com/bitnami
   version: 16.2.5
-- name: kube-prometheus-stack
-  repository: https://prometheus-community.github.io/helm-charts
-  version: 45.0.0
-- name: grafana
-  repository: https://charts.bitnami.com/bitnami
-  version: 8.0.0
-digest: sha256:b5424960734bfacf23f70e1768e31140fd7eb976b9cf38c8deb6b23c83f8449b
-generated: "2025-05-11T15:33:20.148629-04:00"
+digest: sha256:f48abe4c88ad913df3da8b28285f811c6a278c7273b4c0fda7b931ee5f6bb34a
+generated: "2025-05-11T15:49:50.165298-04:00"
