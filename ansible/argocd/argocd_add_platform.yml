@@ -53,11 +53,7 @@
       register: tracking_ns_check
       failed_when: false
       changed_when: false
-
-    - name: Create tracking-platform namespace if missing
-      when: tracking_ns_check.rc != 0
-      command: kubectl create namespace tracking-platform
-
+      
     - name: Create grafana-pvc for Grafana data
       command: >
         kubectl apply -n tracking-platform -f - 
