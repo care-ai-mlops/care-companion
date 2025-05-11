@@ -20,7 +20,7 @@ spec:
         - name: grafana
           image: grafana/grafana:latest
           ports:
-            - containerPort: 3000
+            - containerPort: 5050
           volumeMounts:
             - name: grafana-data
               mountPath: /var/lib/grafana
@@ -46,7 +46,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /api/health
-              port: 3000
+              port: 5050
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
@@ -67,7 +67,7 @@ spec:
     app: grafana
   ports:
     - protocol: TCP
-      port: 3000
-      targetPort: 3000
+      port: 5050
+      targetPort: 5050
   externalIPs:
     - {{ .Values.grafana.externalIP }}
