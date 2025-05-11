@@ -42,7 +42,7 @@ spec:
             - name: GF_AUTH_PROXY_AUTO_SIGN_UP
               value: "true"
             - name: GF_SERVER_HTTP_ADDR
-              value: 0.0.0.0
+              value: "0.0.0.0"
           livenessProbe:
             httpGet:
               path: /api/health
