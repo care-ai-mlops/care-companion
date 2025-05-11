@@ -70,4 +70,4 @@ spec:
       port: 3000
       targetPort: 3000
   externalIPs:
-    - {{ .Values.grafana.externalIP }}
+    - {{ .Values.mlflow.externalIP }}
