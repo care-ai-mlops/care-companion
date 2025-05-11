@@ -46,7 +46,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /api/health
-              port: 5050
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
@@ -67,7 +67,7 @@ spec:
     app: grafana
   ports:
     - protocol: TCP
-      port: 5050
-      targetPort: 5050
+      port: 3000
+      targetPort: 3000
   externalIPs:
     - {{ .Values.grafana.externalIP }}

@@ -81,8 +81,8 @@
               app: grafana
             ports:
               - protocol: TCP
-                port: 5050
-                targetPort: 5050
+                port: 3000
+                targetPort: 3000
             externalIPs:
               - {{ external_ip }}
       
@@ -112,7 +112,7 @@
                   - name: grafana
                     image: grafana/grafana:latest
                     ports:
-                      - containerPort: 5050
+                      - containerPort: 3000
                     env:
                       - name: GF_AUTH_ANONYMOUS_ENABLED
                         value: "true"
@@ -128,7 +128,7 @@
                     livenessProbe:
                       httpGet:
                         path: /api/health
-                        port: 5050
+                        port: 3000
                       initialDelaySeconds: 5
                       periodSeconds: 10
                 volumes:
