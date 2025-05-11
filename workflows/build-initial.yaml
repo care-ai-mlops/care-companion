@@ -61,9 +61,9 @@ spec:
           mountPath: /mnt/workspace
       resources:
         requests:
-          memory: "1Gi"
+          memory: "5Gi"
           cpu: "500m"
         limits:
-          memory: "2Gi"
-          cpu: "1"
+          memory: "5Gi"
+          cpu: "2"
 
