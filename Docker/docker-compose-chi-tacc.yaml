@@ -2,21 +2,15 @@ name: chi_tacc_services
 services:
   ray-training:
     image: rayproject/ray:2.42.1-gpu
-    container_name: ray-training
-    command: ["ray", "start", "--address=${KVM_RAY_HEAD_IP}:6379", "--num-cpus=32", "--num-gpus=1", "--block"]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: "nvidia"
-              capabilities: ["gpu"]
-              device_ids: ["0"]
+    container_name: ray-worker-1
+    runtime: nvidia
+    command: ["ray", "start", "--address=${KVM_FLOATING_IP}:6379", "--num-cpus=32", "--num-gpus=1", "--block"]
     environment:
       - AWS_ACCESS_KEY_ID=your-access-key
       - AWS_SECRET_ACCESS_KEY=your-secret-key
-      - AWS_ENDPOINT_URL=http://${KVM_MINIO_IP}:9000
-      - MLFLOW_TRACKING_URI=http://${KVM_MLFLOW_IP}:8000
-      - MLFLOW_S3_ENDPOINT_URL=http://${KVM_MINIO_IP}:9000
+      - AWS_ENDPOINT_URL=http://${KVM_FLOATING_IP}:9000
+      - MLFLOW_TRACKING_URI=http://${KVM_FLOATING_IP}:8000
+      - MLFLOW_S3_ENDPOINT_URL=http://${KVM_FLOATING_IP}:9000
     shm_size: '12g'
     volumes:
       - /mnt/object/:/mnt/object/
@@ -24,21 +18,15 @@ services:
 
   ray-serving:
     image: rayproject/ray:2.42.1-gpu
-    container_name: ray-serving
-    command: ["ray", "start", "--address=${KVM_RAY_HEAD_IP}:6379", "--num-cpus=32", "--num-gpus=1", "--block"]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: "nvidia"
-              capabilities: ["gpu"]
-              device_ids: ["1"]
+    container_name: ray-worker-2
+    runtime: nvidia
+    command: ["ray", "start", "--address=${KVM_FLOATING_IP}:6379", "--num-cpus=32", "--num-gpus=1", "--block"]
     environment:
       - AWS_ACCESS_KEY_ID=your-access-key
       - AWS_SECRET_ACCESS_KEY=your-secret-key
-      - AWS_ENDPOINT_URL=http://${KVM_MINIO_IP}:9000
-      - MLFLOW_TRACKING_URI=http://${KVM_MLFLOW_IP}:8000
-      - MLFLOW_S3_ENDPOINT_URL=http://${KVM_MINIO_IP}:9000
+      - AWS_ENDPOINT_URL=http://${KVM_FLOATING_IP}:9000
+      - MLFLOW_TRACKING_URI=http://${KVM_FLOATING_IP}:8000
+      - MLFLOW_S3_ENDPOINT_URL=http://${KVM_FLOATING_IP}:9000
     shm_size: '12g'
     volumes:
       - /mnt/object/:/mnt/object/
