@@ -1,3 +1,6 @@
+# Use an official Python runtime as a parent image
+FROM python:3.11-slim-buster
+
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
@@ -14,4 +17,4 @@ COPY src/inference_server /app
 EXPOSE 5000
 
 # Run the command to start the Fastapi server
-CMD ["python","app.py"]
+CMD ["python", "app.py"]
