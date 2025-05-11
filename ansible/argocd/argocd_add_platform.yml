@@ -53,10 +53,10 @@
       register: tracking_ns_check
       failed_when: false
       changed_when: false
-      
+
     - name: Create grafana-pvc for Grafana data
       command: >
-        kubectl apply -n tracking-platform -f - 
+        kubectl apply -n care-companion-platform -f - 
       args:
         stdin: |
           apiVersion: v1
@@ -73,7 +73,7 @@
 
     - name: Create ray-pvc for Ray shared data
       command: >
-        kubectl apply -n tracking-platform -f - 
+        kubectl apply -n care-companion-platform -f - 
       args:
         stdin: |
           apiVersion: v1
