@@ -82,6 +82,24 @@
                 storage: 1Gi
       register: ray_pvc_result
 
+    - name: Create prometheus-pvc for Prometheus data
+      command: >
+        kubectl apply -n care-companion-platform -f -
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: prometheus-pvc
+            namespace: care-companion-platform
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi  
+      register: prometheus_pvc_result
+
     - name: Create Prometheus Deployment
       command: >
         kubectl apply -n care-companion-platform -f - 
