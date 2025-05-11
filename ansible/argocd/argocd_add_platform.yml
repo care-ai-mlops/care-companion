@@ -48,12 +48,6 @@
       when: ns_check.rc != 0
       command: kubectl create namespace care-companion-platform
 
-    - name: Ensure tracking-platform namespace exists
-      command: kubectl get namespace tracking-platform
-      register: tracking_ns_check
-      failed_when: false
-      changed_when: false
-
     - name: Create grafana-pvc for Grafana data
       command: >
         kubectl apply -n care-companion-platform -f - 
