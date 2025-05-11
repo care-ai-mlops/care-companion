@@ -87,8 +87,6 @@
               - {{ external_ip }}
       
     - name: Create Grafana Deployment
-      
-    - name: Create Grafana Deployment
       command: >
         kubectl apply -n care-companion-platform -f -
       args:
