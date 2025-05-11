@@ -3,8 +3,8 @@
   become: yes
   vars:
     repo_url: https://github.com/care-ai-mlops/care-companion.git
-    #repo_dest: /tmp/gourmetgram-iac
-    workflow_file: workflows/build-initial.yaml   
+    repo_dest: /tmp/care-companion
+    workflow_file: workflows/build-initial.yaml  
     workflow_name: build-initial
     argo_namespace: argo
 
@@ -20,7 +20,7 @@
   become: yes
   vars:
     repo_url: https://github.com/care-ai-mlops/care-companion.git
-    #repo_dest: /tmp/gourmetgram-iac
+    repo_dest: /tmp/gourmetgram-iac
     workflow_file: workflows/build-initial.yaml   
     workflow_name: build-initial
     argo_namespace: argo
