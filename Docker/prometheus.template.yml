@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Ray metrics
+  - job_name: 'ray-head'
+    static_configs:
+      - targets: ['ray-head:8080']
+
+  # FastAPI metrics
+  - job_name: 'fastapi-serving'
+    static_configs:
+      - targets: ['${CHI_FLOATING_IP}:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  # Triton metrics
+  - job_name: 'triton-serving'
+    static_configs:
+      - targets: ['${CHI_FLOATING_IP}:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
