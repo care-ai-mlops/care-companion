@@ -32,7 +32,7 @@ spec:
 
           while [ $i -le $MAX_RETRIES ]; do
             echo "Attempt $i of $MAX_RETRIES: Cloning repo..."
-            git clone --branch main https://github.com/care-ai-mlops/care-companion.git /mnt/workspace && break
+            git clone --branch master https://github.com/care-ai-mlops/care-companion.git /mnt/workspace && break
             echo "Git clone failed. Retrying in 5 seconds..."
             i=$((i + 1))
             sleep 5
@@ -50,20 +50,12 @@ spec:
     container:
       image: gcr.io/kaniko-project/executor:latest
       args:
-        - --dockerfile=/mnt/workspace/DockerFile
+        - --dockerfile=/mnt/workspace/Dockerfile
         - --context=/mnt/workspace
-        - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:staging-1.0.0
-        - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:canary-1.0.0
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companionstaging-1.0.0
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companioncanary-1.0.0
         - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:production-1.0.0
         - --insecure
       volumeMounts:
         - name: workdir
           mountPath: /mnt/workspace
-      resources:
-        requests:
-          memory: "5Gi"
-          cpu: "2"
-        limits:
-          memory: "5Gi"
-          cpu: "2"
-
