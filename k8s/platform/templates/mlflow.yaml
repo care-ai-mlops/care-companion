@@ -73,3 +73,13 @@ spec:
       targetPort: 8000
   externalIPs:
     - {{ .Values.mlflow.externalIP }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mlflow
+  namespace: care-companion-platform
+type: Opaque
+stringData:
+  MLFLOW_BACKEND_STORE_URI: postgresql://user:password@postgres/mlflowdb
