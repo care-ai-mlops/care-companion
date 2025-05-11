@@ -2,14 +2,14 @@
   hosts: node1
   become: yes
   vars:
-    repo_url: https://github.com/teaching-on-testbeds/gourmetgram-iac.git
-    repo_dest: /tmp/gourmetgram-iac
+    repo_url: https://github.com/care-ai-mlops/care-companion.git
+    #repo_dest: /tmp/gourmetgram-iac
     workflow_file: workflows/build-initial.yaml   
     workflow_name: build-initial
     argo_namespace: argo
 
   tasks:
-    - name: Clone or update gourmetgram-iac repo
+    - name: Clone or update care-companion-platform repo
       git:
         repo: "{{ repo_url }}"
         dest: "{{ repo_dest }}"
@@ -19,18 +19,18 @@
   hosts: node1
   become: yes
   vars:
-    repo_url: https://github.com/teaching-on-testbeds/gourmetgram-iac.git
-    repo_dest: /tmp/gourmetgram-iac
+    repo_url: https://github.com/care-ai-mlops/care-companion.git
+    #repo_dest: /tmp/gourmetgram-iac
     workflow_file: workflows/build-initial.yaml   
     workflow_name: build-initial
     argo_namespace: argo
 
   tasks:
-    - name: Clone or update gourmetgram-iac repo
+    - name: Clone or update care-companion-platform repo
       git:
         repo: "{{ repo_url }}"
         dest: "{{ repo_dest }}"
-        version: main   
+        version: main  
 
     - name: Submit Argo Workflow
       command: kubectl -n {{ argo_namespace }} create -f {{ repo_dest }}/{{ workflow_file }}
