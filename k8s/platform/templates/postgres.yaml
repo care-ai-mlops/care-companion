@@ -6,7 +6,7 @@ metadata:
   namespace: care-companion-platform
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:latest
+          image: postgres:16.2
           env:
             - name: POSTGRES_USER
               value: "user"
