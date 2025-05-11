@@ -1,12 +1,12 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Tuple
+from typing import Optional
 import time, copy, argparse, os, subprocess, tempfile, shutil
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms, models
+from torchvision import models
 from CustomDatasetXray import CustomDatasetXray 
 import mlflow
 import mlflow.pytorch
@@ -21,36 +21,49 @@ class PreTrainedClassifier(nn.Module):
     """ResNet-18 backbone → custom FC head for N classes."""
 
     def __init__(self, 
-                 num_classes: int,
+                 num_classes: int = 3,
                  dropout: float = 0.5, 
                  pretrained: bool = True,
                  model_backbone: Optional[str] = "resnet18",
                  ) -> None:
         super().__init__()
         self.model_backbone_map = {
-            'resnet18': models.ResNet18_Weights.IMAGENET1K_V1,
-            'resnet50': models.ResNet50_Weights.IMAGENET1K_V1,
-            'efficientnetb1': models.EfficientNet_B1_Weights.IMAGENET1K_V2, 
-            'efficientnetb1': models.EfficientNet_B4_Weights.IMAGENET1K_V1, 
+        'resnet18': (models.resnet18, models.ResNet18_Weights.IMAGENET1K_V1),
+        'resnet50': (models.resnet50, models.ResNet50_Weights.IMAGENET1K_V1),
+        'efficientnetb1': (models.efficientnet_b1, models.EfficientNet_B1_Weights.IMAGENET1K_V2),
+        'efficientnetb4': (models.efficientnet_b4, models.EfficientNet_B4_Weights.IMAGENET1K_V1),
         }
         self.dropout = dropout
-        if model_backbone in self.model_backbone_map and pretrained:
-            weights = self.model_backbone_map[model_backbone] 
-        elif model_backbone in self.model_backbone_map and not pretrained:
-            weights = None
-        else:
+        if model_backbone not in self.model_backbone_map:
             raise ValueError(f"Unsupported model backbone: {model_backbone}")
+        
+        model_fn, weights_enum = self.model_backbone_map[model_backbone]
+        weights = weights_enum if pretrained else None
+
+        self.backbone = model_fn(weights=weights)
             
-        self.backbone = models.resnet18(weights=weights)
-        in_feat = self.backbone.fc.in_features
-        self.backbone.fc = nn.Sequential(
-            nn.Dropout(p=self.dropout),
-            nn.Linear(in_feat, 256),
-            nn.ReLU(),
-            nn.Dropout(p=self.dropout),
-            nn.Linear(256, num_classes)
-        )
-        self.classifier = self.backbone.fc
+
+        if 'efficientnet' in model_backbone:
+            in_feat = self.backbone.classifier[1].in_features
+            self.backbone.classifier = nn.Sequential(
+                nn.Dropout(p=self.dropout),
+                nn.Linear(in_feat, 256),
+                nn.ReLU(),
+                nn.Dropout(p=self.dropout),
+                nn.Linear(256, num_classes)
+            )
+            self.classifier = self.backbone.classifier
+
+        else: 
+            in_feat = self.backbone.fc.in_features
+            self.backbone.fc = nn.Sequential(
+                nn.Dropout(p=self.dropout),
+                nn.Linear(in_feat, 256),
+                nn.ReLU(),
+                nn.Dropout(p=self.dropout),
+                nn.Linear(256, num_classes)
+            )
+            self.classifier = self.backbone.fc
 
     def forward(self, x):
         return self.backbone(x)
@@ -75,16 +88,47 @@ class Trainer:
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.1)
         if self.use_mlflow:
-            mlflow.set_experiment("chest-xray-classifier")
+            mlflow.set_experiment("chest-xray-classifier-2")
 
 
     @staticmethod
     def _accuracy(out, y):
         return (out.argmax(1) == y).float().mean().item()
     
+    @staticmethod
+    def _recall(preds, target, num_classes):
+        """
+        Compute recall for multi-class classification.
+        
+        Recall = TP / (TP + FN)
+        
+        Args:
+            preds: Predicted class indices
+            target: Ground truth class indices
+            num_classes: Number of classes
+            
+        Returns:
+            macro_recall: Average recall across all classes
+        """
+        true_positives = torch.zeros(num_classes, device=preds.device)
+        actual_positives = torch.zeros(num_classes, device=preds.device)
+        
+        for c in range(num_classes):
+            true_positives[c] = ((preds == c) & (target == c)).sum().float()
+            actual_positives[c] = (target == c).sum().float()
+    
+        class_recalls = torch.zeros(num_classes, device=preds.device)
+        for c in range(num_classes):
+            if actual_positives[c] > 0:
+                class_recalls[c] = true_positives[c] / actual_positives[c]
+        
+        macro_recall = class_recalls.mean().item()
+        
+        return macro_recall
+    
     def freeze_backbone(self):
         for name, param in self.model.named_parameters():
-                param.requires_grad = False
+            param.requires_grad = False
         for param in self.model.classifier.parameters():
             param.requires_grad = True
         print("Backbone frozen. Only classifier parameters will be trained.")
@@ -108,7 +152,6 @@ class Trainer:
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
-
                 loss_sum += loss.item() * x.size(0)
                 acc_sum  += self._accuracy(out, y) * x.size(0)
 
@@ -185,7 +228,6 @@ class Trainer:
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.1)
         trainable_params_ch = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         best_acc, best_wts = 0.0, copy.deepcopy(self.model.state_dict())
-
         with mlflow.start_run(run_name="fine_tune", log_system_metrics=True):
             gpu_info = next( 
                 (subprocess.run(cmd, capture_output=True, text=True).stdout 
@@ -242,13 +284,34 @@ class Trainer:
 
                     mlflow.log_artifacts(str(ckpt_path), artifact_path="Models")
                     print(f"Best val-acc {best_acc:.3f} saved to {ckpt_path}")
-
             self.model.load_state_dict(best_wts)
-
 
     def evaluate(self, split: str):
         loss, acc = self._run_epoch(split, train=False)
-        print(f"{split:>20}: loss {loss:.4f}  acc {acc:.3f}")
+        
+        # Calculate recall only during test-time evaluation
+        num_classes = len(next(iter(self.loaders[split]))[1].unique())
+        all_preds = []
+        all_targets = []
+        
+        # Collect all predictions and targets
+        self.model.eval()
+        with torch.no_grad():
+            for x, y in self.loaders[split]:
+                x, y = x.to(self.device), y.to(self.device)
+                out = self.model(x)
+                preds = out.argmax(1)
+                all_preds.append(preds)
+                all_targets.append(y)
+        
+        # Concatenate all batches
+        all_preds = torch.cat(all_preds)
+        all_targets = torch.cat(all_targets)
+        
+        # Calculate recall
+        recall = self._recall(all_preds, all_targets, num_classes)
+        
+        print(f"{split:>20}: loss {loss:.4f}  acc {acc:.3f}  recall {recall:.3f}")
 
         with mlflow.start_run(run_name=f"evaluate_{split}", nested=True):
             mlflow.log_params({
@@ -258,7 +321,8 @@ class Trainer:
             })
             mlflow.log_metrics({
                 f"{split}_loss": loss,
-                f"{split}_accuracy": acc
+                f"{split}_accuracy": acc,
+                f"{split}_recall": recall
             })
             tmpdir = tempfile.mkdtemp()
             try:
@@ -269,7 +333,6 @@ class Trainer:
     
             eval_run_id = mlflow.active_run().info.run_id
         return loss, acc, eval_run_id
-
 
 def main():
     p = argparse.ArgumentParser("Chest Data trainer")
@@ -329,18 +392,10 @@ def main():
     if last_run_id is None:
         raise RuntimeError("No evaluation run to register")
     model_uri = f"runs:/{last_run_id}/model"
-    register_model(model_uri, "chest-xray-classifier")
+    register_model(model_uri, "chest-xray-classifier-enetb4")
     print("Registered model from evaluation run", last_run_id)
 
     print("Training complete.")
 
 if __name__ == "__main__":
     main()
-
-''' 
-if epoch == self.initial_epochs + 1:
-self.unfreeze_backbone()
-self.optimizer = optim.AdamW(self.model.parameters(), lr=self.fine_tine_lr, weight_decay=1e-4)
-self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.1)
-trainable_params_ft = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-'''
