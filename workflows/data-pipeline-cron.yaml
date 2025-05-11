@@ -1,0 +1,128 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: data-pipeline-cron
+  namespace: care-companion-platform
+spec:
+  schedule: "0 */6 * * *"  # Run every 6 hours
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    workflowTemplateRef:
+      name: data-pipeline
+    arguments:
+      parameters:
+        - name: minio-endpoint
+          value: "{{workflow.parameters.minio-endpoint}}"
+        - name: minio-access-key
+          value: "{{workflow.parameters.minio-access-key}}"
+        - name: minio-secret-key
+          value: "{{workflow.parameters.minio-secret-key}}"
+        - name: minio-bucket
+          value: "{{workflow.parameters.minio-bucket}}"
+        - name: mlflow-tracking-uri
+          value: "{{workflow.parameters.mlflow-tracking-uri}}"
+        - name: data-dir
+          value: "{{workflow.parameters.data-dir}}"
+        - name: batch-size
+          value: "{{workflow.parameters.batch-size}}"
+        - name: retrain-interval
+          value: "{{workflow.parameters.retrain-interval}}"
+        - name: validation-threshold
+          value: "{{workflow.parameters.validation-threshold}}"
+        - name: endpoint-ip
+          value: "{{workflow.parameters.endpoint-ip}}"
+    templates:
+      - name: data-pipeline
+        inputs:
+          parameters:
+            - name: minio-endpoint
+            - name: minio-access-key
+            - name: minio-secret-key
+            - name: minio-bucket
+            - name: mlflow-tracking-uri
+            - name: data-dir
+            - name: batch-size
+            - name: retrain-interval
+            - name: validation-threshold
+        steps:
+          - - name: run-pipeline
+              template: run-pipeline
+              arguments:
+                parameters:
+                  - name: minio-endpoint
+                    value: "{{inputs.parameters.minio-endpoint}}"
+                  - name: minio-access-key
+                    value: "{{inputs.parameters.minio-access-key}}"
+                  - name: minio-secret-key
+                    value: "{{inputs.parameters.minio-secret-key}}"
+                  - name: minio-bucket
+                    value: "{{inputs.parameters.minio-bucket}}"
+                  - name: mlflow-tracking-uri
+                    value: "{{inputs.parameters.mlflow-tracking-uri}}"
+                  - name: data-dir
+                    value: "{{inputs.parameters.data-dir}}"
+                  - name: batch-size
+                    value: "{{inputs.parameters.batch-size}}"
+                  - name: retrain-interval
+                    value: "{{inputs.parameters.retrain-interval}}"
+                  - name: validation-threshold
+                    value: "{{inputs.parameters.validation-threshold}}"
+
+      - name: run-pipeline
+        inputs:
+          parameters:
+            - name: minio-endpoint
+            - name: minio-access-key
+            - name: minio-secret-key
+            - name: minio-bucket
+            - name: mlflow-tracking-uri
+            - name: data-dir
+            - name: batch-size
+            - name: retrain-interval
+            - name: validation-threshold
+        container:
+          image: {{workflow.parameters.image}}
+          command: ["python3"]
+          args:
+            - "src/run_data_pipeline.py"
+            - "--minio-endpoint"
+            - "{{inputs.parameters.minio-endpoint}}"
+            - "--minio-access-key"
+            - "{{inputs.parameters.minio-access-key}}"
+            - "--minio-secret-key"
+            - "{{inputs.parameters.minio-secret-key}}"
+            - "--minio-bucket"
+            - "{{inputs.parameters.minio-bucket}}"
+            - "--mlflow-tracking-uri"
+            - "{{inputs.parameters.mlflow-tracking-uri}}"
+            - "--data-dir"
+            - "{{inputs.parameters.data-dir}}"
+            - "--batch-size"
+            - "{{inputs.parameters.batch-size}}"
+            - "--retrain-interval"
+            - "{{inputs.parameters.retrain-interval}}"
+            - "--validation-threshold"
+            - "{{inputs.parameters.validation-threshold}}"
+          env:
+            - name: MINIO_ENDPOINT
+              value: "{{inputs.parameters.minio-endpoint}}"
+            - name: MINIO_ACCESS_KEY
+              value: "{{inputs.parameters.minio-access-key}}"
+            - name: MINIO_SECRET_KEY
+              value: "{{inputs.parameters.minio-secret-key}}"
+            - name: MINIO_BUCKET
+              value: "{{inputs.parameters.minio-bucket}}"
+            - name: MLFLOW_TRACKING_URI
+              value: "{{inputs.parameters.mlflow-tracking-uri}}"
+          volumeMounts:
+            - name: object-storage
+              mountPath: /mnt/object
+            - name: block-storage
+              mountPath: /mnt/block
+        volumes:
+          - name: object-storage
+            persistentVolumeClaim:
+              claimName: object-storage-pvc
+          - name: block-storage
+            persistentVolumeClaim:
+              claimName: block-storage-pvc 
