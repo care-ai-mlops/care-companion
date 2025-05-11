@@ -6,3 +6,6 @@ mlflow:
 
 grafana:
   externalIP: "0.0.0.0"
+
+prometheus:
+  externalIP: "0.0.0.0"
