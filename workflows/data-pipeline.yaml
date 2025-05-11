@@ -1,0 +1,249 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: data-pipeline
+spec:
+  entrypoint: data-pipeline-flow
+  arguments:
+    parameters:
+      - name: minio-endpoint
+        value: "{{workflow.parameters.minio-endpoint}}"
+      - name: minio-access-key
+        value: "{{workflow.parameters.minio-access-key}}"
+      - name: minio-secret-key
+        value: "{{workflow.parameters.minio-secret-key}}"
+      - name: minio-bucket
+        value: "{{workflow.parameters.minio-bucket}}"
+      - name: mlflow-tracking-uri
+        value: "{{workflow.parameters.mlflow-tracking-uri}}"
+      - name: data-dir
+        value: "{{workflow.parameters.data-dir}}"
+      - name: batch-size
+        value: "{{workflow.parameters.batch-size}}"
+      - name: retrain-interval
+        value: "{{workflow.parameters.retrain-interval}}"
+      - name: validation-threshold
+        value: "{{workflow.parameters.validation-threshold}}"
+      - name: endpoint-ip
+        value: "{{workflow.parameters.endpoint-ip}}"
+
+  templates:
+    - name: data-pipeline-flow
+      inputs:
+        parameters:
+          - name: minio-endpoint
+          - name: minio-access-key
+          - name: minio-secret-key
+          - name: minio-bucket
+          - name: mlflow-tracking-uri
+          - name: data-dir
+          - name: batch-size
+          - name: retrain-interval
+          - name: validation-threshold
+          - name: endpoint-ip
+      steps:
+        - - name: run-pipeline
+            template: run-pipeline
+            arguments:
+              parameters:
+                - name: minio-endpoint
+                  value: "{{inputs.parameters.minio-endpoint}}"
+                - name: minio-access-key
+                  value: "{{inputs.parameters.minio-access-key}}"
+                - name: minio-secret-key
+                  value: "{{inputs.parameters.minio-secret-key}}"
+                - name: minio-bucket
+                  value: "{{inputs.parameters.minio-bucket}}"
+                - name: mlflow-tracking-uri
+                  value: "{{inputs.parameters.mlflow-tracking-uri}}"
+                - name: data-dir
+                  value: "{{inputs.parameters.data-dir}}"
+                - name: batch-size
+                  value: "{{inputs.parameters.batch-size}}"
+                - name: retrain-interval
+                  value: "{{inputs.parameters.retrain-interval}}"
+                - name: validation-threshold
+                  value: "{{inputs.parameters.validation-threshold}}"
+        - - name: trigger-training
+            template: trigger-train
+            arguments:
+              parameters:
+                - name: endpoint-ip
+                  value: "{{inputs.parameters.endpoint-ip}}"
+            when: "{{steps.run-pipeline.outputs.retrain_needed}} == 'true'"
+
+    - name: run-pipeline
+      inputs:
+        parameters:
+          - name: minio-endpoint
+          - name: minio-access-key
+          - name: minio-secret-key
+          - name: minio-bucket
+          - name: mlflow-tracking-uri
+          - name: data-dir
+          - name: batch-size
+          - name: retrain-interval
+          - name: validation-threshold
+      outputs:
+        parameters:
+          - name: retrain_needed
+            value: "{{steps.check-retraining.outputs.result}}"
+      steps:
+        - - name: check-retraining
+            template: check-retraining
+            arguments:
+              parameters:
+                - name: minio-endpoint
+                  value: "{{inputs.parameters.minio-endpoint}}"
+                - name: minio-access-key
+                  value: "{{inputs.parameters.minio-access-key}}"
+                - name: minio-secret-key
+                  value: "{{inputs.parameters.minio-secret-key}}"
+                - name: minio-bucket
+                  value: "{{inputs.parameters.minio-bucket}}"
+                - name: mlflow-tracking-uri
+                  value: "{{inputs.parameters.mlflow-tracking-uri}}"
+                - name: data-dir
+                  value: "{{inputs.parameters.data-dir}}"
+                - name: batch-size
+                  value: "{{inputs.parameters.batch-size}}"
+                - name: retrain-interval
+                  value: "{{inputs.parameters.retrain-interval}}"
+                - name: validation-threshold
+                  value: "{{inputs.parameters.validation-threshold}}"
+        - - name: process-data
+            template: process-data
+            arguments:
+              parameters:
+                - name: minio-endpoint
+                  value: "{{inputs.parameters.minio-endpoint}}"
+                - name: minio-access-key
+                  value: "{{inputs.parameters.minio-access-key}}"
+                - name: minio-secret-key
+                  value: "{{inputs.parameters.minio-secret-key}}"
+                - name: minio-bucket
+                  value: "{{inputs.parameters.minio-bucket}}"
+                - name: data-dir
+                  value: "{{inputs.parameters.data-dir}}"
+            when: "{{steps.check-retraining.outputs.result}} == 'true'"
+
+    - name: check-retraining
+      inputs:
+        parameters:
+          - name: minio-endpoint
+          - name: minio-access-key
+          - name: minio-secret-key
+          - name: minio-bucket
+          - name: mlflow-tracking-uri
+          - name: data-dir
+          - name: batch-size
+          - name: retrain-interval
+          - name: validation-threshold
+      script:
+        image: python:3.11-slim
+        command: [python]
+        source: |
+          import os
+          import mlflow
+          from datetime import datetime, timedelta
+          import boto3
+          from botocore.exceptions import ClientError
+
+          # Set up MLflow
+          mlflow.set_tracking_uri("{{inputs.parameters.mlflow-tracking-uri}}")
+          client = mlflow.tracking.MlflowClient()
+
+          # Set up S3 client
+          s3_client = boto3.client(
+              's3',
+              endpoint_url=f'http://{{inputs.parameters.minio-endpoint}}',
+              aws_access_key_id='{{inputs.parameters.minio-access-key}}',
+              aws_secret_access_key='{{inputs.parameters.minio-secret-key}}'
+          )
+
+          try:
+              # Get latest model version
+              latest_model = client.get_latest_versions("chest-classifier-model")[0]
+              last_training_time = datetime.fromtimestamp(latest_model.creation_timestamp / 1000)
+              
+              # Check time-based trigger
+              time_since_training = datetime.now() - last_training_time
+              if time_since_training > timedelta(hours=int('{{inputs.parameters.retrain-interval}}')):
+                  print('true')
+                  exit(0)
+
+              # Check data volume trigger
+              response = s3_client.list_objects_v2(
+                  Bucket='{{inputs.parameters.minio-bucket}}',
+                  Prefix='inference_data/'
+              )
+              
+              new_data_count = sum(1 for obj in response.get('Contents', [])
+                                 if obj['LastModified'] > last_training_time)
+              
+              if new_data_count >= int('{{inputs.parameters.batch-size}}'):
+                  print('true')
+                  exit(0)
+
+              print('false')
+              exit(0)
+
+          except Exception as e:
+              print(f"Error checking retraining trigger: {str(e)}")
+              print('false')
+              exit(1)
+
+    - name: process-data
+      inputs:
+        parameters:
+          - name: minio-endpoint
+          - name: minio-access-key
+          - name: minio-secret-key
+          - name: minio-bucket
+          - name: data-dir
+      container:
+        image: python:3.11-slim
+        command: [python]
+        args:
+          - src/run_data_pipeline.py
+          - --minio-endpoint
+          - "{{inputs.parameters.minio-endpoint}}"
+          - --minio-access-key
+          - "{{inputs.parameters.minio-access-key}}"
+          - --minio-secret-key
+          - "{{inputs.parameters.minio-secret-key}}"
+          - --minio-bucket
+          - "{{inputs.parameters.minio-bucket}}"
+          - --data-dir
+          - "{{inputs.parameters.data-dir}}"
+        volumeMounts:
+          - name: object-storage
+            mountPath: /mnt/object
+          - name: block-storage
+            mountPath: /mnt/block
+      volumes:
+        - name: object-storage
+          persistentVolumeClaim:
+            claimName: object-storage-pvc
+        - name: block-storage
+          persistentVolumeClaim:
+            claimName: block-storage-pvc
+
+    - name: trigger-train
+      inputs:
+        parameters:
+          - name: endpoint-ip
+      resource:
+        action: create
+        manifest: |
+          apiVersion: argoproj.io/v1alpha1
+          kind: Workflow
+          metadata:
+            generateName: train-model-
+          spec:
+            workflowTemplateRef:
+              name: train-model
+            arguments:
+              parameters:
+              - name: endpoint-ip
+                value: "{{inputs.parameters.endpoint-ip}}" 

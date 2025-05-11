@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-head
+  namespace: tracking-platform
+  labels:
+    app: ray-head
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ray-head
+  template:
+    metadata:
+      labels:
+        app: ray-head
+    spec:
+      containers:
+        - name: ray-head
+          image: rayproject/ray:2.42.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /tmp/ray && chown -R root:root /tmp/ray && \
+              ray start --head --port=6379 --ray-client-server-port=10001 \
+              --dashboard-host=0.0.0.0 --block --metrics-export-port=8080
+          ports:
+            - containerPort: 6379
+            - containerPort: 8265
+            - containerPort: 8080
+            - containerPort: 8090
+            - containerPort: 10001
+          volumeMounts:
+            - name: ray-data
+              mountPath: /tmp/ray
+          livenessProbe:
+            httpGet:
+              path: /api/version
+              port: 8265
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: ray-data
+          persistentVolumeClaim:
+            claimName: ray-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ray-head
+  namespace: tracking-platform
+spec:
+  selector:
+    app: ray-head
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+    - name: dashboard
+      port: 8265
+      targetPort: 8265
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+    - name: internal
+      port: 8090
+      targetPort: 8090
+    - name: client
+      port: 10001
+      targetPort: 10001

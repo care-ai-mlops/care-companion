@@ -28,29 +28,42 @@ class PreTrainedClassifier(nn.Module):
                  ) -> None:
         super().__init__()
         self.model_backbone_map = {
-            'resnet18': models.ResNet18_Weights.IMAGENET1K_V1,
-            'resnet50': models.ResNet50_Weights.IMAGENET1K_V1,
-            'efficientnetb1': models.EfficientNet_B1_Weights.IMAGENET1K_V2, 
-            'efficientnetb1': models.EfficientNet_B4_Weights.IMAGENET1K_V1, 
+        'resnet18': (models.resnet18, models.ResNet18_Weights.IMAGENET1K_V1),
+        'resnet50': (models.resnet50, models.ResNet50_Weights.IMAGENET1K_V1),
+        'efficientnetb1': (models.efficientnet_b1, models.EfficientNet_B1_Weights.IMAGENET1K_V2),
+        'efficientnetb4': (models.efficientnet_b4, models.EfficientNet_B4_Weights.IMAGENET1K_V1),
         }
         self.dropout = dropout
-        if model_backbone in self.model_backbone_map and pretrained:
-            weights = self.model_backbone_map[model_backbone] 
-        elif model_backbone in self.model_backbone_map and not pretrained:
-            weights = None
-        else:
+        if model_backbone not in self.model_backbone_map:
             raise ValueError(f"Unsupported model backbone: {model_backbone}")
+        
+        model_fn, weights_enum = self.model_backbone_map[model_backbone]
+        weights = weights_enum if pretrained else None
+
+        self.backbone = model_fn(weights=weights)
             
-        self.backbone = models.resnet18(weights=weights)
-        in_feat = self.backbone.fc.in_features
-        self.backbone.fc = nn.Sequential(
-            nn.Dropout(p=self.dropout),
-            nn.Linear(in_feat, 256),
-            nn.ReLU(),
-            nn.Dropout(p=self.dropout),
-            nn.Linear(256, num_classes)
-        )
-        self.classifier = self.backbone.fc
+
+        if 'efficientnet' in model_backbone:
+            in_feat = self.backbone.classifier[1].in_features
+            self.backbone.classifier = nn.Sequential(
+                nn.Dropout(p=self.dropout),
+                nn.Linear(in_feat, 256),
+                nn.ReLU(),
+                nn.Dropout(p=self.dropout),
+                nn.Linear(256, num_classes)
+            )
+            self.classifier = self.backbone.classifier
+
+        else: 
+            in_feat = self.backbone.fc.in_features
+            self.backbone.fc = nn.Sequential(
+                nn.Dropout(p=self.dropout),
+                nn.Linear(in_feat, 256),
+                nn.ReLU(),
+                nn.Dropout(p=self.dropout),
+                nn.Linear(256, num_classes)
+            )
+            self.classifier = self.backbone.fc
 
     def forward(self, x):
         return self.backbone(x)
@@ -75,7 +88,7 @@ class Trainer:
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.1)
         if self.use_mlflow:
-            mlflow.set_experiment("chest-xray-classifier")
+            mlflow.set_experiment("chest-xray-classifier-2")
 
 
     @staticmethod
@@ -97,25 +110,18 @@ class Trainer:
         Returns:
             macro_recall: Average recall across all classes
         """
-        # Initialize counters for each class
         true_positives = torch.zeros(num_classes, device=preds.device)
         actual_positives = torch.zeros(num_classes, device=preds.device)
         
-        # Count true positives and actual positives for each class
         for c in range(num_classes):
-            # True positives: predicted as class c and actually is class c
             true_positives[c] = ((preds == c) & (target == c)).sum().float()
-            
-            # Actual positives: all samples that are actually class c (TP + FN)
             actual_positives[c] = (target == c).sum().float()
-        
-        # Calculate recall for each class, handling division by zero
+    
         class_recalls = torch.zeros(num_classes, device=preds.device)
         for c in range(num_classes):
             if actual_positives[c] > 0:
                 class_recalls[c] = true_positives[c] / actual_positives[c]
         
-        # Calculate macro-average recall (average of recalls for each class)
         macro_recall = class_recalls.mean().item()
         
         return macro_recall
@@ -386,18 +392,10 @@ def main():
     if last_run_id is None:
         raise RuntimeError("No evaluation run to register")
     model_uri = f"runs:/{last_run_id}/model"
-    register_model(model_uri, "chest-xray-classifier")
+    register_model(model_uri, "chest-xray-classifier-enetb4")
     print("Registered model from evaluation run", last_run_id)
 
     print("Training complete.")
 
 if __name__ == "__main__":
     main()
-
-''' 
-if epoch == self.initial_epochs + 1:
-self.unfreeze_backbone()
-self.optimizer = optim.AdamW(self.model.parameters(), lr=self.fine_tine_lr, weight_decay=1e-4)
-self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.1)
-trainable_params_ft = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-'''

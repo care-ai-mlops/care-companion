@@ -6,7 +6,7 @@ metadata:
   namespace: care-companion-platform
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 5Gi

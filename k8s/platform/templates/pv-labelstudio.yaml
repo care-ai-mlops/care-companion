@@ -1,0 +1,21 @@
+{{- $node := .Values.blockStorage.node        | default "kvm-node-01" -}}
+{{- $size := .Values.blockStorage.labelstudioSize | default "10Gi" -}}
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-labelstudio
+spec:
+  storageClassName: local-block
+  capacity:       { storage: {{ $size }} }
+  accessModes:    [ReadWriteOnce]             
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /mnt/block/labelstudio                 
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values: [ {{ $node | quote }} ]
