@@ -50,7 +50,7 @@ spec:
     container:
       image: gcr.io/kaniko-project/executor:latest
       args:
-        - --dockerfile=/mnt/workspace/Docker
+        - --dockerfile=/mnt/workspace/DockerFile
         - --context=/mnt/workspace
         - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:staging-1.0.0
         - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:canary-1.0.0
