@@ -7,6 +7,8 @@ curl -sSL https://get.docker.com/ | sudo sh
 echo "Adding current user to docker group..."
 sudo groupadd -f docker
 sudo usermod -aG docker $USER
+newgrp docker
+sudo systemctl restart docker
 
 echo "Setting up NVIDIA Container Toolkit repository..."
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \

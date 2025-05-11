@@ -170,8 +170,17 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+#env
+.blazer-venv/
+
 # PyPI configuration file
 .pypirc
 
 # MacOS Finder metadata file
 **/.DS_Store
+
+**/pyproject.toml
+
+**/.python-version
+
+**/uv.lock

@@ -1,20 +1,36 @@
----
 - name: Run Argo Workflow from GitHub Repo
   hosts: node1
   become: yes
   vars:
     repo_url: https://github.com/care-ai-mlops/care-companion.git
-    repo_dest: /tmp/care-companion
+    #repo_dest: /tmp/gourmetgram-iac
     workflow_file: workflows/build-initial.yaml   
     workflow_name: build-initial
-    argo_namespace: argocd
+    argo_namespace: argo
 
   tasks:
-    - name: Clone or update care-companion repo
+    - name: Clone or update care-companion-platform repo
       git:
         repo: "{{ repo_url }}"
         dest: "{{ repo_dest }}"
         version: main   
+
+- name: Run Argo Workflow from GitHub Repo
+  hosts: node1
+  become: yes
+  vars:
+    repo_url: https://github.com/care-ai-mlops/care-companion.git
+    #repo_dest: /tmp/gourmetgram-iac
+    workflow_file: workflows/build-initial.yaml   
+    workflow_name: build-initial
+    argo_namespace: argo
+
+  tasks:
+    - name: Clone or update care-companion-platform repo
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest }}"
+        version: main  
 
     - name: Submit Argo Workflow
       command: kubectl -n {{ argo_namespace }} create -f {{ repo_dest }}/{{ workflow_file }}

@@ -20,6 +20,8 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - /mnt/block/minio_data:/data
+    networks:
+      - tracking_network
 
   minio-create-bucket:
     image: minio/mc
@@ -41,6 +43,8 @@ services:
       else
         echo 'Bucket ray already exists';
       fi"
+    networks:
+      - tracking_network
 
   postgres:
     image: postgres:latest
@@ -54,6 +58,8 @@ services:
       - "5432:5432"
     volumes:
       - /mnt/block/postgres_data:/var/lib/postgresql/data
+    networks:
+      - tracking_network
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.20.2
@@ -74,21 +80,46 @@ services:
       /bin/sh -c "pip install psycopg2-binary boto3 &&
       mlflow server --backend-store-uri postgresql://user:password@postgres/mlflowdb
       --artifacts-destination s3://mlflow-artifacts/ --serve-artifacts --host 0.0.0.0 --port 8000"
+    networks:
+      - tracking_network
+
+  prometheus-init:
+    image: busybox
+    container_name: prometheus-init
+    command: ["sh", "-c", "chown -R 65534:65534 /prometheus"]
+    volumes:
+      - /mnt/block/prometheus_data:/prometheus
+    networks:
+      - tracking_network
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    user: "65534:65534"  # nobody:nogroup
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /mnt/block/prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
     ports:
       - "9090:9090"
-    restart: always
+    environment:
+      - CHI_FLOATING_IP=${CHI_FLOATING_IP}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - tracking_network
+    depends_on:
+      - prometheus-init
 
   ray-head:
     image: rayproject/ray:2.42.1
@@ -109,15 +140,21 @@ services:
       - /mnt/block/ray_tmp:/tmp/ray
     environment:
       - RAY_GRAFANA_HOST=http://grafana:3000
-      - RAY_GRAFANA_IFRAME_HOST=http://${HOST_IP}:3000
+      - RAY_GRAFANA_IFRAME_HOST=http://${KVM_FLOATING_IP}:3000
       - RAY_PROMETHEUS_HOST=http://prometheus:9090
       - RAY_PROMETHEUS_NAME=Prometheus
+      - RAY_DASHBOARD_HOST=0.0.0.0
+      - RAY_DASHBOARD_PORT=8265
+      - RAY_METRICS_EXPORT_PORT=8080
+      - RAY_METRICS_GRAFANA_ENABLED=true
       - AWS_ACCESS_KEY_ID=your-access-key
       - AWS_SECRET_ACCESS_KEY=your-secret-key
       - AWS_ENDPOINT_URL=http://minio:9000
     user: root
     depends_on:
       - prometheus
+    networks:
+      - tracking_network
 
   grafana:
     image: grafana/grafana:latest
@@ -137,7 +174,7 @@ services:
     volumes:
       - /mnt/block/grafana:/var/lib/grafana
       - /mnt/block/ray_tmp:/tmp/ray
-      - ./grafana-datasources.yml:/etc/grafana/datasources/datasources.yml:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
@@ -149,12 +186,25 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
       - GF_AUTH_PROXY_ENABLED=true
       - GF_AUTH_PROXY_AUTO_SIGN_UP=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
     depends_on:
       - ray-head
       - prometheus
+    networks:
+      - tracking_network
 
 volumes:
   grafana_storage:
   ray_tmp:
   minio_data:
   prometheus_data:
+
+networks:
+  tracking_network:
+    driver: bridge

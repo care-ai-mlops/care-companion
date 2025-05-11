@@ -1,0 +1,87 @@
+groups:
+  - name: inference_alerts
+    rules:
+      # Triton Server Alerts
+      - alert: TritonServerDown
+        expr: up{job="triton"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Triton server is down"
+          description: "Triton server has been down for more than 1 minute."
+
+      - alert: HighInferenceLatency
+        expr: rate(nv_inference_compute_duration_us{job="triton"}[5m]) > 1000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High inference latency detected"
+          description: "Average inference latency is above 1 second for the last 5 minutes."
+
+      - alert: HighGPUUtilization
+        expr: nv_gpu_utilization{job="triton"} > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GPU utilization"
+          description: "GPU utilization is above 90% for the last 5 minutes."
+
+      - alert: HighGPUMemoryUsage
+        expr: nv_gpu_memory_used_bytes{job="triton"} / nv_gpu_memory_total_bytes{job="triton"} * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GPU memory usage"
+          description: "GPU memory usage is above 90% for the last 5 minutes."
+
+      # FastAPI Alerts
+      - alert: FastAPIServerDown
+        expr: up{job="fastapi"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FastAPI server is down"
+          description: "FastAPI server has been down for more than 1 minute."
+
+      - alert: HighPredictionLatency
+        expr: rate(prediction_latency_seconds_sum{job="fastapi"}[5m]) / rate(prediction_latency_seconds_count{job="fastapi"}[5m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High prediction latency"
+          description: "Average prediction latency is above 2 seconds for the last 5 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(prediction_total{job="fastapi"}[5m]) > 0 and rate(prediction_total{job="fastapi",status="error"}[5m]) / rate(prediction_total{job="fastapi"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in predictions"
+          description: "Error rate is above 10% for the last 5 minutes."
+
+  - name: inference_service
+    rules:
+      - alert: HighPredictionLatency
+        expr: prediction_latency_seconds > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High prediction latency detected
+          description: "Prediction latency is above 1 second for 5 minutes"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Service is down
+          description: "Service {{ $labels.job }} has been down for more than 1 minute" 

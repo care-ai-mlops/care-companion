@@ -4,15 +4,13 @@ kind: PersistentVolumeClaim
 metadata:
   name: minio-pvc
   namespace: care-companion-platform
-  annotations:
-    csi-rclone/storage-path: minio
-    csi-rclone/unmask: "022"
+
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 20Gi
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment

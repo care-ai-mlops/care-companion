@@ -59,14 +59,57 @@
     - name: Show user groups
       debug:
         msg: "{{ cc_id.stdout }}"
+  # Add this play before the "Setup Kubernetes Dashboard" play
+
+- name: Verify and Fix Kubernetes Cluster Status
+  hosts: node1
+  become: yes
+  tasks:
+    - name: Check if kubeadm has been initialized
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_init_file
+
+    - name: Initialize kubeadm if not already done
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      when: not kubeadm_init_file.stat.exists
+      register: kubeadm_init
+      ignore_errors: true
+
+    - name: Wait for API server to be available
+      wait_for:
+        host: 127.0.0.1
+        port: 6443
+        timeout: 300
+        delay: 10
+      register: api_status
+
+    - name: Install Flannel CNI
+      command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+      when: api_status is success
+
+    - name: Wait for nodes to be ready
+      shell: |
+        kubectl wait --for=condition=Ready nodes --all --timeout=300s
+      register: nodes_ready
+      retries: 30
+      delay: 10
+      until: nodes_ready.rc == 0
 
 - name: Setup Kubernetes Dashboard
   hosts: node1
   become: yes
   tasks:
+    - name: Verify API server is responsive
+      command: kubectl get nodes
+      register: api_check
+      retries: 6
+      delay: 10
+      until: api_check.rc == 0
+
     - name: Create dashboard admin-user and RBAC
       shell: |
-        cat <<EOF | kubectl apply -f -
+        kubectl apply --validate=false -f - <<EOF
         apiVersion: v1
         kind: ServiceAccount
         metadata:
@@ -88,6 +131,10 @@
         EOF
       args:
         executable: /bin/bash
+      register: dashboard_setup
+      retries: 3
+      delay: 5
+      until: dashboard_setup.rc == 0
 
     - name: Wait for Kubernetes Dashboard pod to be running
       shell: |

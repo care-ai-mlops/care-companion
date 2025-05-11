@@ -48,6 +48,200 @@
       when: ns_check.rc != 0
       command: kubectl create namespace care-companion-platform
 
+    - name: Create grafana-pvc for Grafana data
+      command: >
+        kubectl apply -n care-companion-platform -f - 
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: grafana-pvc
+            namespace: care-companion-platform
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi
+      register: grafana_pvc_result
+
+    - name: Create Grafana Service
+      command: >
+        kubectl apply -n care-companion-platform -f -
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: grafana
+            namespace: care-companion-platform
+          spec:
+            selector:
+              app: grafana
+            ports:
+              - protocol: TCP
+                port: 3000
+                targetPort: 3000
+            externalIPs:
+              - {{ external_ip }}
+      
+    - name: Create Grafana Deployment
+      command: >
+        kubectl apply -n care-companion-platform -f -
+      args:
+        stdin: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            namespace: care-companion-platform
+            labels:
+              app: grafana
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: grafana
+            template:
+              metadata:
+                labels:
+                  app: grafana
+              spec:
+                containers:
+                  - name: grafana
+                    image: grafana/grafana:latest
+                    ports:
+                      - containerPort: 3000
+                    env:
+                      - name: GF_AUTH_ANONYMOUS_ENABLED
+                        value: "true"
+                      - name: GF_AUTH_PROXY_ENABLED
+                        value: "true"
+                      - name: GF_AUTH_PROXY_AUTO_SIGN_UP
+                        value: "true"
+                      - name: GF_SERVER_HTTP_ADDR
+                        value: "0.0.0.0"
+                    volumeMounts:
+                      - name: grafana-data
+                        mountPath: /var/lib/grafana
+                    livenessProbe:
+                      httpGet:
+                        path: /api/health
+                        port: 3000
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                volumes:
+                  - name: grafana-data
+                    persistentVolumeClaim:
+                      claimName: grafana-pvc
+
+    - name: Create ray-pvc for Ray shared data
+      command: >
+        kubectl apply -n care-companion-platform -f - 
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: ray-pvc
+            namespace: care-companion-platform
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+      register: ray_pvc_result
+
+    - name: Create prometheus-pvc for Prometheus data
+      command: >
+        kubectl apply -n care-companion-platform -f -
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: prometheus-pvc
+            namespace: care-companion-platform
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi  
+      register: prometheus_pvc_result
+
+    - name: Create Prometheus Deployment
+      command: >
+        kubectl apply -n care-companion-platform -f - 
+      args:
+        stdin: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: prometheus
+            namespace: care-companion-platform
+            labels:
+              app: prometheus
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: prometheus
+            template:
+              metadata:
+                labels:
+                  app: prometheus
+              spec:
+                containers:
+                  - name: prometheus
+                    image: prom/prometheus:latest
+                    ports:
+                      - containerPort: 9090
+                    args:
+                      - "--config.file=/etc/prometheus/prometheus.yml"
+                      - "--storage.tsdb.path=/prometheus"
+                      - "--web.enable-lifecycle"
+                    volumeMounts:
+                      - name: prometheus-data
+                        mountPath: /prometheus
+                      - name: config-volume
+                        mountPath: /etc/prometheus/prometheus.yml
+                        subPath: prometheus.yml
+                        readOnly: true
+                    livenessProbe:
+                      httpGet:
+                        path: /-/healthy
+                        port: 9090
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                volumes:
+                  - name: prometheus-data
+                    persistentVolumeClaim:
+                      claimName: prometheus-pvc
+                  - name: config-volume
+                    configMap:
+                      name: prometheus-config
+
+    - name: Create Prometheus Service
+      command: >
+        kubectl apply -n care-companion-platform -f - 
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: prometheus
+            namespace: care-companion-platform
+          spec:
+            selector:
+              app: prometheus
+            ports:
+              - protocol: TCP
+                port: 9090
+                targetPort: 9090
+
     - name: Check if MinIO secret already exists
       command: kubectl get secret minio-credentials -n care-companion-platform
       register: minio_secret_check
@@ -93,9 +287,11 @@
         --repo {{ repo_path }} \
         --path {{ app_path }} \
         --dest-server https://kubernetes.default.svc \
-        --dest-namespace care-companion-platform-project51 \
+        --dest-namespace care-companion-platform \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
+        --helm-set-string grafana.externalIP={{ external_ip }} \
+        --helm-set-string prometheus.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd \
         --sync-policy automated --self-heal
       register: app_create
@@ -104,9 +300,11 @@
       when: app_check.rc == 0
       command: >
         argocd app set {{ app_name }} \
-        --dest-namespace care-companion-platform-project51 \
+        --dest-namespace care-companion-platform \
         --helm-set-string minio.externalIP={{ external_ip }} \
         --helm-set-string mlflow.externalIP={{ external_ip }} \
+        --helm-set-string grafana.externalIP={{ external_ip }} \
+        --helm-set-string prometheus.externalIP={{ external_ip }} \
         --port-forward --port-forward-namespace=argocd
       register: app_update
 

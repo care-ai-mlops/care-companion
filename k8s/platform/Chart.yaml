@@ -1,20 +1,8 @@
 apiVersion: v2
-name: platform
-version: 0.2.0
-
+name: mlflow
+version: 1.0.0
 dependencies:
-  - name: kube-prometheus-stack
-    version: 45.0.0
-    repository: https://prometheus-community.github.io/helm-charts
-    alias: prometheus
-  - name: grafana
-    version: 8.0.0
-    repository: https://charts.bitnami.com/bitnami
-    alias: grafana
-  - name: label-studio
-    version: 0.5.0
-    repository: https://charts.heartex.com
-  - name: kube-ray
-    version: 1.2.0
-    repository: https://ray-project.github.io/kuberay-helm/
-  
+  - name: postgresql
+    version: "~16.2.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    alias: postgres

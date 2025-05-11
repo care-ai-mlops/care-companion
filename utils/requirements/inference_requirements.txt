@@ -1,0 +1,9 @@
+numpy
+fastapi
+uvicorn
+tritonclient[all]
+prometheus-client
+prometheus-fastapi-instrumentator
+python-multipart
+mlflow==2.20.2
+Pillow

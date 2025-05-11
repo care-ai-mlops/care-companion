@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:latest
+          image: postgres:16.2
           env:
             - name: POSTGRES_USER
               value: "user"

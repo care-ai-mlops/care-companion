@@ -1,0 +1,12 @@
+clouds:
+  openstack:
+    auth:
+      auth_url: https://openstack.tacc.chameleoncloud.org:5000/v3
+      username: "{{ env.OS_USERNAME }}"
+      password: "{{ env.OS_PASSWORD }}"
+      project_name: "{{ env.OS_PROJECT_NAME }}"
+      user_domain_name: "{{ env.OS_USER_DOMAIN_NAME }}"
+      project_domain_name: "{{ env.OS_PROJECT_DOMAIN_NAME }}"
+    region_name: "{{ env.OS_REGION_NAME }}"
+    interface: public
+    identity_api_version: 3 

@@ -1,0 +1,59 @@
+name: inference_service
+services:
+  triton_server:
+    build:
+      context: ../..
+      dockerfile: Docker/serve/Dockerfile.triton
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+        - DOCKER_BUILDKIT=1
+    container_name: triton_server
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    expose:
+      - "8000"  # for HTTP requests
+      - "8001"  # for GRPC requests
+    ports:
+      - "8002:8002"  # for reporting metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v2/health/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+  fastapi:
+    build:
+      context: ../..
+      dockerfile: Docker/serve/Dockerfile.fastapi
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+        - DOCKER_BUILDKIT=1
+    container_name: fastapi_server
+    ports:
+      - "5000:5000"
+    environment:
+      - TRITON_SERVER_URL=triton_server:8000
+    depends_on:
+      triton_server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - inference_network
+
+networks:
+  inference_network:
+    driver: bridge
