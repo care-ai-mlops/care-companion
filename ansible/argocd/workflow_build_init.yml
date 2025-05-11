@@ -1,5 +1,5 @@
 - name: Run Argo Workflow from GitHub Repo
-  hosts: node1
+  hosts: node1-mlops-project51
   become: yes
   vars:
     repo_url: https://github.com/care-ai-mlops/care-companion.git
