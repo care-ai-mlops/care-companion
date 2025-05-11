@@ -48,6 +48,50 @@
       when: ns_check.rc != 0
       command: kubectl create namespace care-companion-platform
 
+    - name: Ensure tracking-platform namespace exists
+      command: kubectl get namespace tracking-platform
+      register: tracking_ns_check
+      failed_when: false
+      changed_when: false
+
+    - name: Create tracking-platform namespace if missing
+      when: tracking_ns_check.rc != 0
+      command: kubectl create namespace tracking-platform
+
+    - name: Create grafana-pvc for Grafana data
+      command: >
+        kubectl apply -n tracking-platform -f - 
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: grafana-pvc
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+      register: grafana_pvc_result
+
+    - name: Create ray-pvc for Ray shared data
+      command: >
+        kubectl apply -n tracking-platform -f - 
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: ray-pvc
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+      register: ray_pvc_result
+
     - name: Check if MinIO secret already exists
       command: kubectl get secret minio-credentials -n care-companion-platform
       register: minio_secret_check
