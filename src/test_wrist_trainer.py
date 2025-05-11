@@ -455,8 +455,9 @@ def main():
     )
 
     # Initialize Ray
+    KVM_FLOATING_IP = os.getenv("KVM_FLOATING_IP")
     if not ray.is_initialized():
-        ray.init(address="auto")
+        ray.init(address="ray://{KVM_FLOATING_IP}:10001")
         print("Ray initialized.")
     else:
         print("Ray already initialized.")

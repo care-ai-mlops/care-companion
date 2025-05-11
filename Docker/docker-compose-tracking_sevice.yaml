@@ -6,9 +6,9 @@ services:
     restart: always
     expose:
       - "9000"
-    ports:  
-      - "9000:9000"  
-      - "9001:9001"  
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: "your-access-key"
       MINIO_ROOT_PASSWORD: "your-secret-key"
@@ -19,7 +19,7 @@ services:
       retries: 5
     command: server /data --console-address ":9001"
     volumes:
-      - /mnt/block/minio_data:/data  
+      - /mnt/block/minio_data:/data
 
   minio-create-bucket:
     image: minio/mc
@@ -33,9 +33,9 @@ services:
         mc mb minio/mlflow-artifacts &&
         echo 'Bucket mlflow-artifacts created'
       else
-        echo 'Bucket mlflow-artifacts already exists'; 
+        echo 'Bucket mlflow-artifacts already exists';
       fi &&
-      if ! mc ls minio/ray; then 
+      if ! mc ls minio/ray; then
         mc mb minio/ray &&
         echo 'Bucket ray created'
       else
@@ -53,7 +53,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - /mnt/block/postgres_data:/var/lib/postgresql/data  
+      - /mnt/block/postgres_data:/var/lib/postgresql/data
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.20.2
@@ -62,17 +62,17 @@ services:
     depends_on:
       - minio
       - postgres
-      - minio-create-bucket  
+      - minio-create-bucket
     environment:
       MLFLOW_TRACKING_URI: http://0.0.0.0:8000
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000  
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: "your-access-key"
       AWS_SECRET_ACCESS_KEY: "your-secret-key"
     ports:
       - "8000:8000"
     command: >
       /bin/sh -c "pip install psycopg2-binary boto3 &&
-      mlflow server --backend-store-uri postgresql://user:password@postgres/mlflowdb 
+      mlflow server --backend-store-uri postgresql://user:password@postgres/mlflowdb
       --artifacts-destination s3://mlflow-artifacts/ --serve-artifacts --host 0.0.0.0 --port 8000"
 
   prometheus:
@@ -95,14 +95,15 @@ services:
     container_name: ray-head
     command: |
       /bin/sh -c "
-      mkdir -p /tmp/ray && 
+      mkdir -p /tmp/ray &&
       chown -R root:root /tmp/ray &&
-      ray start --head --port=6379 --dashboard-host=0.0.0.0 --block --metrics-export-port=8080"
+      ray start --head --port=6379 --ray-client-server-port=10001 --dashboard-host=0.0.0.0 --block --metrics-export-port=8080"
     ports:
-      - "6379:6379" 
-      - "8265:8265" 
-      - "8080:8080" 
-      - "8090:8090" 
+      - "6379:6379"
+      - "8265:8265"
+      - "8080:8080"
+      - "8090:8090"
+      - "10001:10001"
     shm_size: '12g'
     volumes:
       - /mnt/block/ray_tmp:/tmp/ray
@@ -128,19 +129,15 @@ services:
         echo 'Waiting for Grafana config files...'
         sleep 2
       done
-      
-      # Copy datasources configuration
-      mkdir -p /etc/grafana/provisioning/datasources
-      cp /etc/grafana/datasources.yml /etc/grafana/provisioning/datasources/
-      
+
       # Start Grafana with copied config
       /run.sh --config /tmp/ray/session_latest/metrics/grafana/grafana.ini"
     ports:
       - "3000:3000"
     volumes:
       - /mnt/block/grafana:/var/lib/grafana
-      - /mnt/block/ray_tmp:/tmp/ray:ro
-      - ./grafana-datasources.yml:/etc/grafana/datasources.yml:ro
+      - /mnt/block/ray_tmp:/tmp/ray
+      - ./grafana-datasources.yml:/etc/grafana/datasources/datasources.yml:ro
     environment:
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
