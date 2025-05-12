@@ -179,3 +179,60 @@ Using GitHub Actions ensures that every change in the codebase or dataset will a
 ##### Staged deployment:
 By using staging, canary, and production environments, we minimize risk by thoroughly testing the model at each stage, ensure scalability and reliability in live settings, and maintain high performance throughout the deployment lifecycle.
 
+
+#### Continuous X pipeline<br>
+##### Infrastructure-as-code: 
+Used Terraform to define, provision, and manage the entire cloud infrastructure.
+Used to provision resources in two resources:
+1) KVM_TACC -
+   Instructions to provision resources:
+   - cd terraform/kvm_tacc
+   - Update clouds.yaml
+   - source chi_openrc.sh
+   - terraform init
+   - terraform plan
+   - terraform apply
+2) CHI_UC -
+   Instructions to provision resources:
+   - cd terraform
+   - Update clouds.yaml
+   - source chi_openrc.sh
+   - chmod +x reserve_gpu.sh
+   - ./reserve_gpu.sh
+   - cd chi_uc
+   - terraform init (add reservation ID from output of reserve_gpu.sh)
+   - terraform plan
+   - terraform apply
+
+Install ansible and kubespray dependencies
+Deploy Kubernetes using Ansible
+- cd ansible
+- ansible-playbook -i inventory.yml pre_k8s/pre_k8s_configure.yml
+- ansible-playbook -i ../inventory/mycluster --become --become-user=root ./cluster.yml
+- ansible-playbook -i inventory.yml post_k8s/post_k8s_configure.yml
+
+##### Cloud-native:
+Used services like minio, mlflow, postgres, grafana, prometheus
+- Set up the ansible.cfg file with your IP
+- ansible-playbook -i inventory.yml argocd/argocd_add_platform.yml (This brings up all the services mentioned above)
+- ansible-playbook -i inventory.yml argocd/workflow_build_init.yml
+- ansible-playbook -i inventory.yml argocd/argocd_add_staging.yml
+- ansible-playbook -i inventory.yml argocd/argocd_add_canary.yml
+- ansible-playbook -i inventory.yml argocd/argocd_add_prod.yml
+- ansible-playbook -i inventory.yml argocd/workflow_templates_apply.yml
+
+
+##### CI/CD and continuous training:
+If model is degraded to 85% then re-training is triggered.
+
+##### Staged deployment:
+- If recall values are above 90 and validaton accuracy are above 90 then we promote to staging
+- If recall values are above 92 and validation accuracy is above 92 then we promote to canary.
+- If recall values are above 94 and validation accuracy is above 94 then we promote to production.
+
+
+
+
+
+
+ 
