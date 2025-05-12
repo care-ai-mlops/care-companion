@@ -1,0 +1,246 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Data Drift Monitoring",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "type": "gauge",
+      "title": "Data Drift Scores",
+      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "data_drift_score{metric_name=\"kl_divergence\"}",
+          "legendFormat": "KL Divergence",
+          "refId": "A"
+        },
+        {
+          "expr": "data_drift_score{metric_name=\"wasserstein_distance\"}",
+          "legendFormat": "Wasserstein Distance",
+          "refId": "B"
+        },
+        {
+          "expr": "data_drift_score{metric_name=\"ks_test\"}",
+          "legendFormat": "KS Test",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.3 },
+              { "color": "red", "value": 0.7 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Feature Distribution Drift",
+      "gridPos": { "x": 8, "y": 1, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(feature_distribution_bucket[$__rate_interval])",
+          "legendFormat": "{{feature_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Label Drift Monitoring",
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
+    },
+    {
+      "type": "gauge",
+      "title": "Label Drift Scores",
+      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "label_drift_score{metric_name=\"kl_divergence\"}",
+          "legendFormat": "KL Divergence",
+          "refId": "A"
+        },
+        {
+          "expr": "label_drift_score{metric_name=\"wasserstein_distance\"}",
+          "legendFormat": "Wasserstein Distance",
+          "refId": "B"
+        },
+        {
+          "expr": "label_drift_score{metric_name=\"ks_test\"}",
+          "legendFormat": "KS Test",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.3 },
+              { "color": "red", "value": 0.7 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Label Distribution",
+      "gridPos": { "x": 8, "y": 10, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "increase(label_distribution[$__range])",
+          "legendFormat": "{{class_name}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "type": "row",
+      "title": "Model Degradation Monitoring",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
+    },
+    {
+      "type": "gauge",
+      "title": "Model Accuracy",
+      "gridPos": { "x": 0, "y": 19, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "model_accuracy{window=\"1h\"}",
+          "legendFormat": "1h Window",
+          "refId": "A"
+        },
+        {
+          "expr": "model_accuracy{window=\"6h\"}",
+          "legendFormat": "6h Window",
+          "refId": "B"
+        },
+        {
+          "expr": "model_accuracy{window=\"24h\"}",
+          "legendFormat": "24h Window",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "green", "value": 0.9 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Confidence Drift",
+      "gridPos": { "x": 8, "y": 19, "w": 16, "h": 8 },
+      "targets": [
+        {
+          "expr": "confidence_drift",
+          "legendFormat": "{{class_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Model Degradation Scores",
+      "gridPos": { "x": 0, "y": 27, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "model_degradation_score{metric_name=\"kl_divergence\"}",
+          "legendFormat": "KL Divergence",
+          "refId": "A"
+        },
+        {
+          "expr": "model_degradation_score{metric_name=\"wasserstein_distance\"}",
+          "legendFormat": "Wasserstein Distance",
+          "refId": "B"
+        },
+        {
+          "expr": "model_degradation_score{metric_name=\"ks_test\"}",
+          "legendFormat": "KS Test",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.3 },
+              { "color": "red", "value": 0.7 }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["monitoring", "model", "drift"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Model Monitoring Dashboard",
+  "uid": "model-monitoring",
+  "version": 1
+} 
