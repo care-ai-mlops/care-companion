@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/inference_server /app
 
 # Expose the port on which the app will run
-EXPOSE 5000:5000
+EXPOSE 5000
 
 # Run the command to start the Fastapi server
 CMD ["python","app.py"]

@@ -84,7 +84,7 @@ spec:
       args:
         - |
           pip install mlflow-skinny
-          export MLFLOW_TRACKING_URI=http://mlflow.gourmetgram-platform.svc.cluster.local:8000
+          export MLFLOW_TRACKING_URI=http://mlflow.care-companion-platform.svc.cluster.local:8000
           mkdir -p /tmp/mlflow_model
 
           echo "Downloading MLflow model artifacts..."
@@ -117,7 +117,7 @@ spec:
       args:
         - --dockerfile=/mnt/workspace/Dockerfile
         - --context=/mnt/workspace
-        - --destination=registry.kube-system.svc.cluster.local:5000/gourmetgram-app:staging-1.0.{{inputs.parameters.model-version}}
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:staging-1.0.{{inputs.parameters.model-version}}
         - --insecure
       volumeMounts:
       - name: workdir
@@ -132,7 +132,7 @@ spec:
       command: [sh, -c]
       source: |
         pip install mlflow-skinny > /dev/null
-        export MLFLOW_TRACKING_URI=http://mlflow.gourmetgram-platform.svc.cluster.local:8000
+        export MLFLOW_TRACKING_URI=http://mlflow.care-companion-platform.svc.cluster.local:8000
         python -c "import mlflow; client = mlflow.tracking.MlflowClient(); client.set_registered_model_alias(name='GourmetGramFood11Model', alias='staging', version='{{inputs.parameters.model-version}}')"
   
   - name: trigger-deploy

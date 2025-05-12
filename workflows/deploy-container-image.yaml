@@ -22,7 +22,7 @@ spec:
         - |
           echo "Deploying model {{inputs.parameters.model-version}} to {{inputs.parameters.environment}}..."
           tag="{{inputs.parameters.environment}}-1.0.{{inputs.parameters.model-version}}"
-          app_name="gourmetgram-{{inputs.parameters.environment}}"
+          app_name="care-companion-{{inputs.parameters.environment}}"
 
           argocd login argocd-server.argocd.svc.cluster.local \
             --username admin \
