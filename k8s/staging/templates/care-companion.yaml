@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gourmetgram-app
-  namespace: gourmetgram-canary
+  name: care-companion-app
+  namespace: care-companion-staging
 
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: gourmetgram-app
+      app: care-companion
   template:
     metadata:
       labels:
-        app: gourmetgram-app
+        app: care-companion
     spec:
       containers:
-        - name: gourmetgram-app
+        - name: care-companion
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           ports:
             - containerPort: 8000
@@ -27,11 +27,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gourmetgram-app
-  namespace: gourmetgram-canary
+  name: care-companion
+  namespace: care-companion-staging
 spec:
   selector:
-    app: gourmetgram-app
+    app: care-companion-app
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 8000

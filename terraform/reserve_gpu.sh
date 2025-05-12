@@ -3,14 +3,14 @@
 NET_NAME="private_net_project51"
 SUBNET_NAME="subnet_project51"
 VM_FLAVOR="baremetal"
-IMAGE_NAME="CC-Ubuntu24.04"
+IMAGE_NAME="CC-Ubuntu24.04-CUDA"
 SSH_KEY="key1"
 FLOATING_IP="192.5.87.25"
 RESERVATION="gpu_compute_gigaio_project51"
 
 echo "Creating lease: $RESERVATION_NAME"
 openstack reservation lease create \
-  --reservation min=1,max=1,resource_type=physical:host,resource_properties='["=", "$node_type", "gpu_rtx_6000"]' \
+  --reservation min=1,max=1,resource_type=physical:host,resource_properties='["=", "$node_type", "compute_icelake_r650"]' \
   "$RESERVATION"
 
 LEASE_ID=$(openstack reservation lease show "$RESERVATION" -f value -c id)
