@@ -68,7 +68,7 @@ spec:
       source: |
         pip install mlflow-skinny > /dev/null
         export MLFLOW_TRACKING_URI=http://mlflow.care-companion.svc.cluster.local:8000
-        python -c "import mlflow; client = mlflow.tracking.MlflowClient(); client.set_registered_model_alias(name='GourmetGramFood11Model', alias='{{inputs.parameters.alias}}', version='{{inputs.parameters.model-version}}')"
+        python -c "import mlflow; client = mlflow.tracking.MlflowClient(); client.set_registered_model_alias(name='CareCompanionFood11Model', alias='{{inputs.parameters.alias}}', version='{{inputs.parameters.model-version}}')"
 
   - name: trigger-deploy
     inputs:
