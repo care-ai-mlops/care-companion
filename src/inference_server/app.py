@@ -6,7 +6,7 @@ import numpy as np
 from typing import Dict, Any
 import logging
 import time
-from prometheus_client import Counter, Histogram, generate_latest
+from prometheus_client import Counter, Histogram, generate_latest, Gauge
 from prometheus_client.openmetrics.exposition import generate_latest as generate_latest_openmetrics
 from prometheus_fastapi_instrumentator import Instrumentator
 import os
@@ -64,6 +64,15 @@ PREDICTION_LATENCY = Histogram('prediction_latency_seconds', 'Time spent process
 PREDICTION_COUNTER = Counter('prediction_total', 'Total number of predictions made')
 TRITON_INFERENCE_LATENCY = Histogram('triton_inference_latency_seconds', 'Time spent in Triton server inference')
 TRITON_INFERENCE_ERRORS = Counter('triton_inference_errors_total', 'Total number of Triton inference errors')
+
+# New metrics for class predictions and confidence
+CLASS_PREDICTIONS = Counter('class_predictions_total', 'Total predictions per class', ['class_name'])
+PREDICTION_CONFIDENCE = Gauge('prediction_confidence', 'Confidence of the predicted class', ['class_name'])
+
+# Initialize metrics with default values for all classes
+for class_name in ["NORMAL", "PNEUMONIA", "TUBERCULOSIS"]:
+    CLASS_PREDICTIONS.labels(class_name=class_name)
+    PREDICTION_CONFIDENCE.labels(class_name=class_name).set(0)
 
 @app.get("/health")
 async def health_check():
@@ -157,6 +166,15 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
 
         # Create class mapping
         class_mapping = {0: "NORMAL", 1: "PNEUMONIA", 2: "TUBERCULOSIS"}
+
+        # Get predicted class and confidence
+        predicted_class_idx = np.argmax(probabilities[0])
+        predicted_class = class_mapping[predicted_class_idx]
+        confidence = float(probabilities[0][predicted_class_idx])
+
+        # Record metrics
+        CLASS_PREDICTIONS.labels(class_name=predicted_class).inc()
+        PREDICTION_CONFIDENCE.labels(class_name=predicted_class).set(confidence)
 
         # Convert probabilities to dictionary with class labels
         result = {

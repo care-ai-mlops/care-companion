@@ -1,0 +1,161 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "gauge",
+      "title": "Average Prediction Confidence",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "avg(prediction_confidence)",
+          "legendFormat": "Average Confidence",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "datasource": "prometheus"
+    },
+    {
+      "type": "timeseries",
+      "title": "Prediction Confidence (Cumulative)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "prediction_confidence{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}",
+          "legendFormat": "{{class_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 80,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "datasource": "prometheus"
+    },
+    {
+      "type": "bargauge",
+      "title": "Prediction Confidence (Over Selected Time Range)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 10 },
+      "targets": [
+        {
+          "expr": "prediction_confidence{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}",
+          "legendFormat": "{{class_name}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "datasource": "prometheus"
+    },
+    {
+      "type": "bargauge",
+      "title": "Predicted Class Totals (Over Selected Time Range)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 10 },
+      "targets": [
+        {
+          "expr": "increase(class_predictions_total{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}[$__range])",
+          "legendFormat": "{{class_name}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        }
+      },
+      "datasource": "prometheus"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["monitoring", "inference"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Live Monitoring",
+  "uid": "live-monitoring",
+  "version": 1
+} 

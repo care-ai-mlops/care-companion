@@ -9,5 +9,5 @@ EXPOSE 8000 8001 8002
 # Copy the model repository into the container
 COPY triton_model_repo /models
 
-# Start Triton server with the model repository
-CMD ["tritonserver", "--model-repository=/models"]
+# Start Triton server with the model repository and metrics enabled
+CMD ["tritonserver", "--model-repository=/models", "--metrics-port=8002", "--metrics-interval-ms=1000"]

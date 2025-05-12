@@ -160,21 +160,10 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
-    entrypoint: |
-      /bin/sh -c "
-      # Wait for config directory
-      while [ ! -f /tmp/ray/session_latest/metrics/grafana/grafana.ini ]; do
-        echo 'Waiting for Grafana config files...'
-        sleep 2
-      done
-
-      # Start Grafana with copied config
-      /run.sh --config /tmp/ray/session_latest/metrics/grafana/grafana.ini"
     ports:
       - "3000:3000"
     volumes:
       - /mnt/block/grafana:/var/lib/grafana
-      - /mnt/block/ray_tmp:/tmp/ray
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
@@ -195,7 +184,6 @@ services:
       start_period: 5s
     restart: unless-stopped
     depends_on:
-      - ray-head
       - prometheus
     networks:
       - tracking_network
@@ -208,4 +196,6 @@ volumes:
 
 networks:
   tracking_network:
+    name: tracking_network
+    external: true
     driver: bridge
