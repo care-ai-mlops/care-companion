@@ -213,8 +213,11 @@
                 // Get the GPU toggle state
                 const useGpu = useGpuToggle.checked;
                 
+                // Get server IP from environment variable or use default
+                const serverIp = window.SERVER_IP || 'localhost';
+                
                 // Send to server using relative path with query parameter
-                const response = await fetch(`http://localhost:5000/predict_chest?use_gpu=${useGpu}`, {
+                const response = await fetch(`http://${serverIp}:5000/predict_chest?use_gpu=${useGpu}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

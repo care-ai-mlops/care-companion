@@ -39,8 +39,12 @@ services:
     container_name: fastapi_server
     ports:
       - "5000:5000"
+    volumes:
+      - ./reference_data:/app/reference_data:ro
     environment:
       - TRITON_SERVER_URL=triton_server:8000
+      - CHI_FLOATING_IP=${CHI_FLOATING_IP:-fastapi_server}
+      - REFERENCE_DATA_DIR=/app/reference_data
     depends_on:
       triton_server:
         condition: service_healthy
@@ -58,3 +62,7 @@ networks:
   inference_network:
     name: inference_network
     driver: bridge
+
+volumes:
+  reference_data:
+    driver: local

@@ -16,6 +16,14 @@ from scipy.stats import entropy, wasserstein_distance, ks_2samp
 from collections import deque
 import threading
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+import asyncio
+from alibi_detect.cd import MMDDriftOnline
+from alibi_detect.cd.pytorch import HiddenOutput, preprocess_drift
+import torch
+import torch.nn as nn
+from torchvision import transforms
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +38,14 @@ Instrumentator().instrument(app).expose(app)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Initialize drift detection metrics
+DRIFT_EVENTS = Counter('drift_events_total', 'Total number of drift events detected')
+DRIFT_TEST_STAT = Histogram('drift_test_stat', 'Drift test statistic distribution')
+DRIFT_SCORE = Gauge('drift_score', 'Current drift score', ['metric_type'])
+DRIFT_THRESHOLD = Gauge('drift_threshold', 'Current drift threshold', ['metric_type'])
+DRIFT_WINDOW_SIZE = Gauge('drift_window_size', 'Number of samples in drift detection window')
+DRIFT_LAST_UPDATE = Gauge('drift_last_update_timestamp', 'Timestamp of last drift detection update')
+
 # Store historical data for drift detection
 class DataStore:
     def __init__(self, max_size=1000):
@@ -38,6 +54,68 @@ class DataStore:
         self.confidences = deque(maxlen=max_size)
         self.timestamps = deque(maxlen=max_size)
         self.lock = threading.Lock()
+        self.drift_detector = None
+        self.drift_executor = ThreadPoolExecutor(max_workers=2)
+        self.drift_queue = asyncio.Queue()
+        self.drift_task = None
+        self.last_drift_update = time.time()
+
+    def initialize_drift_detector(self, model: nn.Module, x_ref: np.ndarray):
+        """Initialize the drift detector with reference data"""
+        feature_model = HiddenOutput(model, layer=-1)
+        preprocess_fn = lambda x: preprocess_drift(x, model=feature_model)
+        
+        self.drift_detector = MMDDriftOnline(
+            x_ref=x_ref,
+            ert=300,  # Expected run time between false positives
+            window_size=10,  # Number of test samples to use in each MMD check
+            backend='pytorch',
+            preprocess_fn=preprocess_fn
+        )
+        
+        # Initialize drift metrics
+        DRIFT_THRESHOLD.labels(metric_type='mmd').set(self.drift_detector.threshold)
+        DRIFT_WINDOW_SIZE.set(self.drift_detector.window_size)
+
+    async def start_drift_monitoring(self):
+        """Start the drift monitoring task"""
+        if self.drift_task is None:
+            self.drift_task = asyncio.create_task(self._process_drift_queue())
+
+    async def _process_drift_queue(self):
+        """Process the drift detection queue"""
+        while True:
+            try:
+                features = await self.drift_queue.get()
+                if self.drift_detector is not None:
+                    # Run drift detection in thread pool to avoid blocking
+                    loop = asyncio.get_event_loop()
+                    result = await loop.run_in_executor(
+                        self.drift_executor,
+                        self._detect_drift,
+                        features
+                    )
+                    
+                    # Update drift metrics
+                    if result['is_drift']:
+                        DRIFT_EVENTS.inc()
+                    DRIFT_TEST_STAT.observe(result['test_stat'])
+                    DRIFT_SCORE.labels(metric_type='mmd').set(result['test_stat'])
+                    self.last_drift_update = time.time()
+                    DRIFT_LAST_UPDATE.set(self.last_drift_update)
+                    
+                self.drift_queue.task_done()
+            except Exception as e:
+                logger.error(f"Error in drift detection: {e}")
+
+    def _detect_drift(self, features: np.ndarray) -> Dict[str, Any]:
+        """Detect drift in features using alibi-detect"""
+        try:
+            result = self.drift_detector.predict(features)
+            return result['data']
+        except Exception as e:
+            logger.error(f"Error in drift detection: {e}")
+            return {'is_drift': False, 'test_stat': 0.0}
 
     def add_prediction(self, features, prediction, confidence):
         with self.lock:
@@ -45,6 +123,10 @@ class DataStore:
             self.predictions.append(prediction)
             self.confidences.append(confidence)
             self.timestamps.append(datetime.now())
+            
+            # Add features to drift detection queue
+            if self.drift_detector is not None:
+                asyncio.create_task(self.drift_queue.put(features))
 
     def get_recent_data(self, window_hours):
         with self.lock:
@@ -60,74 +142,85 @@ class DataStore:
 data_store = DataStore()
 
 def calculate_drift_scores(reference_data: List[float], current_data: List[float]) -> Dict[str, float]:
-    """Calculate various drift scores between reference and current data"""
+    """Calculate various drift scores between reference and current data using vectorized operations"""
     if not reference_data or not current_data:
         return {"kl_divergence": 0, "wasserstein_distance": 0, "ks_test": 0}
     
-    # Calculate KL divergence
-    ref_hist, _ = np.histogram(reference_data, bins=50, density=True)
-    curr_hist, _ = np.histogram(current_data, bins=50, density=True)
-    ref_hist = np.clip(ref_hist, 1e-10, None)  # Avoid log(0)
-    curr_hist = np.clip(curr_hist, 1e-10, None)
-    kl_div = entropy(ref_hist, curr_hist)
+    # Convert to numpy arrays for faster computation
+    ref_data = np.array(reference_data)
+    curr_data = np.array(current_data)
     
-    # Calculate Wasserstein distance
-    wass_dist = wasserstein_distance(reference_data, current_data)
+    # Calculate histograms in one go
+    ref_hist, _ = np.histogram(ref_data, bins=50, density=True)
+    curr_hist, _ = np.histogram(curr_data, bins=50, density=True)
+    
+    # Avoid log(0) and ensure positive values
+    ref_hist = np.clip(ref_hist, 1e-10, None)
+    curr_hist = np.clip(curr_hist, 1e-10, None)
+    
+    # Calculate KL divergence using vectorized operations
+    kl_div = np.sum(ref_hist * np.log(ref_hist / curr_hist))
+    
+    # Calculate Wasserstein distance using vectorized operations
+    wass_dist = wasserstein_distance(ref_data, curr_data)
     
     # Calculate KS test statistic
-    ks_stat, _ = ks_2samp(reference_data, current_data)
+    ks_stat, _ = ks_2samp(ref_data, curr_data)
     
     return {
-        "kl_divergence": min(kl_div, 1.0),  # Normalize to [0,1]
+        "kl_divergence": min(kl_div, 1.0),
         "wasserstein_distance": min(wass_dist, 1.0),
         "ks_test": ks_stat
     }
 
-def update_drift_metrics():
-    """Update all drift-related metrics"""
-    # Get data for different time windows
-    features_1h, preds_1h, confs_1h = data_store.get_recent_data(1)
-    features_6h, preds_6h, confs_6h = data_store.get_recent_data(6)
-    features_24h, preds_24h, confs_24h = data_store.get_recent_data(24)
-    
-    if not features_1h:
+@lru_cache(maxsize=32)
+def get_cached_data(window_hours: int) -> tuple:
+    """Cache frequently accessed data to avoid repeated calculations"""
+    return data_store.get_recent_data(window_hours)
+
+def process_window(window: str, features: List[List[float]], preds: List[int], confs: List[float]) -> None:
+    """Process a single time window's data"""
+    if not features:
         return
+        
+    # Get drift detection results from alibi-detect
+    if len(features) > 1:
+        # Convert features to numpy array
+        features_array = np.array(features)
+        # Get drift detection result
+        drift_result = data_store._detect_drift(features_array)
+        
+        # Update drift metrics
+        if drift_result['is_drift']:
+            DRIFT_EVENTS.inc()
+        DRIFT_TEST_STAT.observe(drift_result['test_stat'])
+        
+        # Update data drift score
+        DATA_DRIFT_SCORE.labels(metric_name='mmd').set(drift_result['test_stat'])
     
-    # Calculate data drift scores
-    for window, features in [("1h", features_1h), ("6h", features_6h), ("24h", features_24h)]:
-        if len(features) > 1:
-            # Calculate drift for each feature
-            for i in range(len(features[0])):
-                ref_data = [f[i] for f in features[:-1]]
-                curr_data = [f[i] for f in features[-1:]]
-                scores = calculate_drift_scores(ref_data, curr_data)
-                for metric, score in scores.items():
-                    DATA_DRIFT_SCORE.labels(metric_name=metric).set(score)
+    # Update model accuracy
+    if preds and confs:
+        accuracy = sum(confs) / len(confs)
+        MODEL_ACCURACY.labels(window=window).set(accuracy)
+
+def update_drift_metrics():
+    """Update all drift-related metrics using parallel processing"""
+    # Get data for different time windows using cached function
+    windows_data = {
+        "1h": get_cached_data(1),
+        "6h": get_cached_data(6),
+        "24h": get_cached_data(24)
+    }
     
-    # Calculate label drift scores
-    for window, preds in [("1h", preds_1h), ("6h", preds_6h), ("24h", preds_24h)]:
-        if len(preds) > 1:
-            ref_preds = preds[:-1]
-            curr_preds = preds[-1:]
-            scores = calculate_drift_scores(ref_preds, curr_preds)
-            for metric, score in scores.items():
-                LABEL_DRIFT_SCORE.labels(metric_name=metric).set(score)
-    
-    # Calculate model degradation scores
-    for window, confs in [("1h", confs_1h), ("6h", confs_6h), ("24h", confs_24h)]:
-        if len(confs) > 1:
-            ref_confs = confs[:-1]
-            curr_confs = confs[-1:]
-            scores = calculate_drift_scores(ref_confs, curr_confs)
-            for metric, score in scores.items():
-                MODEL_DEGRADATION_SCORE.labels(metric_name=metric).set(score)
-    
-    # Update model accuracy (simplified version - you might want to implement actual accuracy calculation)
-    for window, (preds, confs) in [("1h", (preds_1h, confs_1h)), ("6h", (preds_6h, confs_6h)), ("24h", (preds_24h, confs_24h))]:
-        if preds and confs:
-            # Simple accuracy based on confidence scores
-            accuracy = sum(confs) / len(confs)
-            MODEL_ACCURACY.labels(window=window).set(accuracy)
+    # Process windows in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        for window, (features, preds, confs) in windows_data.items():
+            futures.append(executor.submit(process_window, window, features, preds, confs))
+        
+        # Wait for all futures to complete
+        for future in futures:
+            future.result()
 
 def preprocess_image(image: Image.Image) -> np.ndarray:
     """Preprocess image using NumPy operations"""
@@ -149,7 +242,15 @@ def softmax(x: np.ndarray) -> np.ndarray:
 @app.get("/")
 async def read_root():
     """Serve the main HTML page"""
-    return FileResponse("static/index.html")
+    # Read the HTML file
+    with open("static/index.html", "r") as f:
+        html_content = f.read()
+    
+    # Inject the server IP
+    server_ip = os.getenv("CHI_FLOATING_IP", "localhost")
+    html_content = html_content.replace("</head>", f'<script>window.SERVER_IP = "{server_ip}";</script></head>')
+    
+    return Response(content=html_content, media_type="text/html")
 
 # Get Triton server URL from environment variable
 TRITON_SERVER_URL = os.getenv("TRITON_SERVER_URL", "localhost:8000")
@@ -193,10 +294,7 @@ for class_name in ["NORMAL", "PNEUMONIA", "TUBERCULOSIS"]:
     CONFIDENCE_DRIFT.labels(class_name=class_name).set(0)
 
 # Initialize data drift metrics
-for metric in ["kl_divergence", "wasserstein_distance", "ks_test"]:
-    DATA_DRIFT_SCORE.labels(metric_name=metric).set(0)
-    LABEL_DRIFT_SCORE.labels(metric_name=metric).set(0)
-    MODEL_DEGRADATION_SCORE.labels(metric_name=metric).set(0)
+DATA_DRIFT_SCORE.labels(metric_name='mmd').set(0)
 
 # Initialize model accuracy metrics
 for window in ["1h", "6h", "24h"]:
@@ -360,6 +458,84 @@ async def generate_report(data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Report generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize drift detection on startup"""
+    try:
+        # Load your model here
+        model = torch.load("models/chest_model.pth", map_location='cpu')
+        model.eval()
+        
+        # Get reference data path from environment variable with fallback
+        reference_data_dir = os.getenv("REFERENCE_DATA_DIR", "/app/reference_data")
+        logger.info(f"Using reference data directory: {reference_data_dir}")
+        
+        if not os.path.exists(reference_data_dir):
+            logger.error(f"Reference data directory not found at {reference_data_dir}")
+            return
+            
+        # Define image transformations
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        
+        # Process each class
+        processed_images = []
+        expected_classes = ['NORMAL', 'PNEUMONIA', 'TUBERCULOSIS']
+        missing_classes = []
+        
+        for class_name in expected_classes:
+            class_dir = os.path.join(reference_data_dir, class_name)
+            if not os.path.exists(class_dir):
+                missing_classes.append(class_name)
+                logger.error(f"Class directory not found: {class_dir}")
+                continue
+                
+            # Get list of image files
+            image_files = [f for f in os.listdir(class_dir) 
+                          if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            
+            if not image_files:
+                logger.error(f"No images found in class directory: {class_dir}")
+                continue
+                
+            logger.info(f"Processing {len(image_files)} images for class {class_name}")
+            
+            # Process images
+            for img_file in image_files:
+                try:
+                    img_path = os.path.join(class_dir, img_file)
+                    image = Image.open(img_path).convert('RGB')
+                    tensor = transform(image)
+                    processed_images.append(tensor.numpy())
+                except Exception as e:
+                    logger.error(f"Error processing image {img_path}: {e}")
+                    continue
+        
+        if missing_classes:
+            logger.error(f"Missing reference data for classes: {', '.join(missing_classes)}")
+            return
+            
+        if not processed_images:
+            logger.error("No valid images found in reference data")
+            return
+            
+        # Stack all processed images
+        reference_data = np.stack(processed_images)
+        logger.info(f"Loaded {len(processed_images)} reference images with shape {reference_data.shape}")
+        
+        # Initialize drift detector
+        data_store.initialize_drift_detector(model, reference_data)
+        
+        # Start drift monitoring
+        await data_store.start_drift_monitoring()
+        
+        logger.info("Drift detection initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize drift detection: {e}")
 
 if __name__ == "__main__":
     import uvicorn
