@@ -92,13 +92,19 @@ To efficiently manage and scale our training jobs, we will use a Ray cluster
 
 #### Model serving 
 ##### API Endpoint: 
-We will wrap our models in a FastAPI endpoint for real-time inference (e.g., fracture detection, pneumonia, TB). FastAPI is chosen for its speed and async capabilities, which are crucial for handling real-time inference requests with minimal latency (1-2 seconds per image). 
+We wrapped our models in a FastAPI endpoint for real-time inference (pneumonia, TB or normal). FastAPI is chosen for its speed and async capabilities, which are crucial for handling real-time inference requests with minimal latency (1-2 seconds per image). 
 <ul>
  <li>Size: Models will range from 100MB to 200MB (CNNs for image detection).</li>
  <li>Throughput: 50-100 images per minute for batch inference.</li>
- <li>Latency: 1-2 seconds per image for online inference.</li>
- <li>Concurrency: Support 50-100 concurrent requests for multiple users (doctors)</li>
+ <li>Latency: less than 1 second on both gpu and cpu.</li>
+ <li>Concurrency: Support 75+ concurrent requests for multiple users (doctors)</li>
 </ul>
+
+We are using Nvidia Triton server with onnx runtime gpu serving and OpenVINO cpu serving both from triton server with dynamic batching.
+
+The api endpoint has metrics, health and prediction endpoints.
+
+For serving any chameleon node is suitable, whether it has GPU or not.
 
 #### Model Optimizations:
 ##### Quantization: 
@@ -119,12 +125,25 @@ Ray and load balancing ensure that we can scale concurrently without compromisin
 
 #### Evaluation and Monitoring
 ##### Offline Evaluation: 
-Immediately after model training, we will perform offline evaluations focusing on the recall metric to prioritize minimizing false negatives, which is critical for healthcare applications. We will evaluate models on fracture detection, pneumonia, and tuberculosis detection using 10,000 and 8,000 images, respectively. </br>
-All evaluation metrics, including recall, will be logged using the MLFlow metric logger for tracking, comparison, and visualization of results across different models.
-Models meeting the required recall threshold will be automatically registered in the MLFlow model registry for deployment. If performance is inadequate, the model will be flagged for retraining.
+Immediately after model training, we perform offline evaluations focusing on the recall metric to prioritize minimizing false negatives, which is critical for healthcare applications. We evaluate models on pneumonia, and tuberculosis detection using test images, respectively. </br>
+All evaluation metrics, including recall, is  be logged using the MLFlow metric logger for tracking.
+
+Model meeting the required recall (0.85) threshold will be automatically registered in the MLFlow model registry for deployment. If performance is inadequate, the model will be flagged for retraining.
+
+
 
 ##### Load Testing: 
 We will use FastAPI to simulate multiple concurrent inference requests. We will deploy the model to the staging environment and use FastAPI’s async capabilities to handle 50-100 concurrent requests. The system’s performance will be evaluated by measuring latency, throughput, and resource usage (CPU/GPU/memory) during both batch and online inference tasks.
+
+There is a fastapi endpoint with passphrase when probed will benchmark the service.
+
+
+##### Online Monitoring AND Data Drift:
+We are logging and visualizing metrics of triton server, fastapi server like inference latency, prediction latency (difference is end to end and just trition inference). 
+
+We are also logging resource utilization and model degradation, data drift, confidence average, cummulative confidence prediction class distribution, etc.
+
+
 
 ##### Canary testing & Continuous feedback: 
 In canary testing, the model will be deployed to a small subset of real users, allowing us to evaluate its performance in a live environment. The continuous feedback loop will collect doctor feedback on predictions, using this data to retrain the model periodically and improve its accuracy over time.

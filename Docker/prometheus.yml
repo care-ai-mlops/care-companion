@@ -11,7 +11,7 @@ scrape_configs:
   # FastAPI metrics
   - job_name: 'fastapi-serving'
     static_configs:
-      - targets: ['129.114.108.106:5000']
+      - targets: ['fastapi_server:5000']
     metrics_path: '/metrics'
     scrape_interval: 5s
     scrape_timeout: 4s
@@ -19,7 +19,7 @@ scrape_configs:
   # Triton metrics
   - job_name: 'triton-serving'
     static_configs:
-      - targets: ['129.114.108.106:8002']
+      - targets: ['triton_server:8002']
     metrics_path: '/metrics'
     scrape_interval: 5s
     scrape_timeout: 4s
