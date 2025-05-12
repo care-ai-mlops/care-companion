@@ -41,6 +41,7 @@ services:
       - "5000:5000"
     environment:
       - TRITON_SERVER_URL=triton_server:8000
+      - CHI_FLOATING_IP=${CHI_FLOATING_IP:-fastapi_server}
     depends_on:
       triton_server:
         condition: service_healthy

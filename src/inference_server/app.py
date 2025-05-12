@@ -16,6 +16,8 @@ from scipy.stats import entropy, wasserstein_distance, ks_2samp
 from collections import deque
 import threading
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,74 +62,95 @@ class DataStore:
 data_store = DataStore()
 
 def calculate_drift_scores(reference_data: List[float], current_data: List[float]) -> Dict[str, float]:
-    """Calculate various drift scores between reference and current data"""
+    """Calculate various drift scores between reference and current data using vectorized operations"""
     if not reference_data or not current_data:
         return {"kl_divergence": 0, "wasserstein_distance": 0, "ks_test": 0}
     
-    # Calculate KL divergence
-    ref_hist, _ = np.histogram(reference_data, bins=50, density=True)
-    curr_hist, _ = np.histogram(current_data, bins=50, density=True)
-    ref_hist = np.clip(ref_hist, 1e-10, None)  # Avoid log(0)
-    curr_hist = np.clip(curr_hist, 1e-10, None)
-    kl_div = entropy(ref_hist, curr_hist)
+    # Convert to numpy arrays for faster computation
+    ref_data = np.array(reference_data)
+    curr_data = np.array(current_data)
     
-    # Calculate Wasserstein distance
-    wass_dist = wasserstein_distance(reference_data, current_data)
+    # Calculate histograms in one go
+    ref_hist, _ = np.histogram(ref_data, bins=50, density=True)
+    curr_hist, _ = np.histogram(curr_data, bins=50, density=True)
+    
+    # Avoid log(0) and ensure positive values
+    ref_hist = np.clip(ref_hist, 1e-10, None)
+    curr_hist = np.clip(curr_hist, 1e-10, None)
+    
+    # Calculate KL divergence using vectorized operations
+    kl_div = np.sum(ref_hist * np.log(ref_hist / curr_hist))
+    
+    # Calculate Wasserstein distance using vectorized operations
+    wass_dist = wasserstein_distance(ref_data, curr_data)
     
     # Calculate KS test statistic
-    ks_stat, _ = ks_2samp(reference_data, current_data)
+    ks_stat, _ = ks_2samp(ref_data, curr_data)
     
     return {
-        "kl_divergence": min(kl_div, 1.0),  # Normalize to [0,1]
+        "kl_divergence": min(kl_div, 1.0),
         "wasserstein_distance": min(wass_dist, 1.0),
         "ks_test": ks_stat
     }
 
-def update_drift_metrics():
-    """Update all drift-related metrics"""
-    # Get data for different time windows
-    features_1h, preds_1h, confs_1h = data_store.get_recent_data(1)
-    features_6h, preds_6h, confs_6h = data_store.get_recent_data(6)
-    features_24h, preds_24h, confs_24h = data_store.get_recent_data(24)
-    
-    if not features_1h:
+@lru_cache(maxsize=32)
+def get_cached_data(window_hours: int) -> tuple:
+    """Cache frequently accessed data to avoid repeated calculations"""
+    return data_store.get_recent_data(window_hours)
+
+def process_window(window: str, features: List[List[float]], preds: List[int], confs: List[float]) -> None:
+    """Process a single time window's data"""
+    if not features:
         return
-    
-    # Calculate data drift scores
-    for window, features in [("1h", features_1h), ("6h", features_6h), ("24h", features_24h)]:
-        if len(features) > 1:
-            # Calculate drift for each feature
-            for i in range(len(features[0])):
-                ref_data = [f[i] for f in features[:-1]]
-                curr_data = [f[i] for f in features[-1:]]
-                scores = calculate_drift_scores(ref_data, curr_data)
-                for metric, score in scores.items():
-                    DATA_DRIFT_SCORE.labels(metric_name=metric).set(score)
+        
+    # Calculate data drift scores for features
+    if len(features) > 1:
+        for i in range(len(features[0])):
+            ref_data = [f[i] for f in features[:-1]]
+            curr_data = [f[i] for f in features[-1:]]
+            scores = calculate_drift_scores(ref_data, curr_data)
+            for metric, score in scores.items():
+                DATA_DRIFT_SCORE.labels(metric_name=metric).set(score)
     
     # Calculate label drift scores
-    for window, preds in [("1h", preds_1h), ("6h", preds_6h), ("24h", preds_24h)]:
-        if len(preds) > 1:
-            ref_preds = preds[:-1]
-            curr_preds = preds[-1:]
-            scores = calculate_drift_scores(ref_preds, curr_preds)
-            for metric, score in scores.items():
-                LABEL_DRIFT_SCORE.labels(metric_name=metric).set(score)
+    if len(preds) > 1:
+        ref_preds = preds[:-1]
+        curr_preds = preds[-1:]
+        scores = calculate_drift_scores(ref_preds, curr_preds)
+        for metric, score in scores.items():
+            LABEL_DRIFT_SCORE.labels(metric_name=metric).set(score)
     
     # Calculate model degradation scores
-    for window, confs in [("1h", confs_1h), ("6h", confs_6h), ("24h", confs_24h)]:
-        if len(confs) > 1:
-            ref_confs = confs[:-1]
-            curr_confs = confs[-1:]
-            scores = calculate_drift_scores(ref_confs, curr_confs)
-            for metric, score in scores.items():
-                MODEL_DEGRADATION_SCORE.labels(metric_name=metric).set(score)
+    if len(confs) > 1:
+        ref_confs = confs[:-1]
+        curr_confs = confs[-1:]
+        scores = calculate_drift_scores(ref_confs, curr_confs)
+        for metric, score in scores.items():
+            MODEL_DEGRADATION_SCORE.labels(metric_name=metric).set(score)
     
-    # Update model accuracy (simplified version - you might want to implement actual accuracy calculation)
-    for window, (preds, confs) in [("1h", (preds_1h, confs_1h)), ("6h", (preds_6h, confs_6h)), ("24h", (preds_24h, confs_24h))]:
-        if preds and confs:
-            # Simple accuracy based on confidence scores
-            accuracy = sum(confs) / len(confs)
-            MODEL_ACCURACY.labels(window=window).set(accuracy)
+    # Update model accuracy
+    if preds and confs:
+        accuracy = sum(confs) / len(confs)
+        MODEL_ACCURACY.labels(window=window).set(accuracy)
+
+def update_drift_metrics():
+    """Update all drift-related metrics using parallel processing"""
+    # Get data for different time windows using cached function
+    windows_data = {
+        "1h": get_cached_data(1),
+        "6h": get_cached_data(6),
+        "24h": get_cached_data(24)
+    }
+    
+    # Process windows in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        for window, (features, preds, confs) in windows_data.items():
+            futures.append(executor.submit(process_window, window, features, preds, confs))
+        
+        # Wait for all futures to complete
+        for future in futures:
+            future.result()
 
 def preprocess_image(image: Image.Image) -> np.ndarray:
     """Preprocess image using NumPy operations"""
@@ -149,7 +172,15 @@ def softmax(x: np.ndarray) -> np.ndarray:
 @app.get("/")
 async def read_root():
     """Serve the main HTML page"""
-    return FileResponse("static/index.html")
+    # Read the HTML file
+    with open("static/index.html", "r") as f:
+        html_content = f.read()
+    
+    # Inject the server IP
+    server_ip = os.getenv("CHI_FLOATING_IP", "localhost")
+    html_content = html_content.replace("</head>", f'<script>window.SERVER_IP = "{server_ip}";</script></head>')
+    
+    return Response(content=html_content, media_type="text/html")
 
 # Get Triton server URL from environment variable
 TRITON_SERVER_URL = os.getenv("TRITON_SERVER_URL", "localhost:8000")
