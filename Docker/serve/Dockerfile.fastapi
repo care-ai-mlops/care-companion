@@ -1,29 +1,23 @@
-# Use NVIDIA Triton base image
-FROM nvcr.io/nvidia/tritonserver:24.10-py3
-
-# Install curl for health checks and other dependencies like FastAPI dependencies
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Install Python 3.12 and pip (assuming this is required for FastAPI)
-RUN apt-get update && apt-get install -y python3.12 python3-pip
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim
 
 # Set the working directory to /app
 WORKDIR /app
 
-# Copy the FastAPI requirements into the container at /app
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements.txt into the container at /app
 COPY utils/requirements/inference_requirements.txt /app/requirements.txt
 
-# Install any needed packages specified in the FastAPI requirements.txt
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the FastAPI app code into the container at /app
+# Copy the current directory contents into the container at /app
 COPY src/inference_server /app
 
-# Copy the Triton model repository into the container at /models
-COPY triton_model_repo /models
+# Expose the port on which the app will run
+EXPOSE 5000
 
-# Expose FastAPI and Triton ports
-EXPOSE 5000 8000 8001 8002
-
-# Run FastAPI server and Triton server in parallel
-CMD ["sh", "-c", "python3 app.py & tritonserver --model-repository=/models"]
+# Run the command to start the Fastapi server
+CMD ["python","app.py"]

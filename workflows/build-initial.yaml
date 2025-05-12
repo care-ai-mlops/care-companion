@@ -46,11 +46,25 @@ spec:
       - name: workdir
         mountPath: /mnt/workspace
 
-  - name: kaniko
+  - name: kaniko-fastapi
     container:
       image: gcr.io/kaniko-project/executor:latest
       args:
         - --dockerfile=/mnt/workspace/Docker/serve/Dockerfile.fastapi
+        - --context=/mnt/workspace
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companionstaging-1.0.0
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companioncanary-1.0.0
+        - --destination=registry.kube-system.svc.cluster.local:5000/care-companion:production-1.0.0
+        - --insecure
+      volumeMounts:
+        - name: workdir
+          mountPath: /mnt/workspace
+
+  - name: kaniko-triton
+    container:
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=/mnt/workspace/Docker/serve/Dockerfile.triton
         - --context=/mnt/workspace
         - --destination=registry.kube-system.svc.cluster.local:5000/care-companionstaging-1.0.0
         - --destination=registry.kube-system.svc.cluster.local:5000/care-companioncanary-1.0.0
