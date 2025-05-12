@@ -3,10 +3,10 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
-  namespace: care-companion-platform
+  namespace: gourmetgram-platform
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
@@ -15,9 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: care-companion-platform
-  labels:
-    app: postgres
+  namespace: gourmetgram-platform
 spec:
   replicas: 1
   selector:
@@ -30,7 +28,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16.2
+          image: postgres:latest
           env:
             - name: POSTGRES_USER
               value: "user"
@@ -52,7 +50,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: care-companion-platform
+  namespace: gourmetgram-platform
 spec:
   selector:
     app: postgres

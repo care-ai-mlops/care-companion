@@ -3,9 +3,3 @@ minio:
 
 mlflow:
   externalIP: "0.0.0.0"
-
-grafana:
-  externalIP: "0.0.0.0"
-
-prometheus:
-  externalIP: "0.0.0.0"

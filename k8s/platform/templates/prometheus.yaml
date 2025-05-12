@@ -4,8 +4,6 @@ kind: Deployment
 metadata:
   name: prometheus
   namespace: care-companion-platform
-  labels:
-    app: prometheus
 spec:
   replicas: 1
   selector:
@@ -18,33 +16,34 @@ spec:
     spec:
       containers:
         - name: prometheus
-          image: prom/prometheus:latest
-          ports:
-            - containerPort: 9090
+          image: prom/prometheus:v2.45.0
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus"
+            - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+            - "--web.console.templates=/usr/share/prometheus/consoles"
             - "--web.enable-lifecycle"
+          ports:
+            - containerPort: 9090
           volumeMounts:
-            - name: prometheus-data
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-storage
               mountPath: /prometheus
-            - name: config-volume
-              mountPath: /etc/prometheus/prometheus.yml
-              subPath: prometheus.yml
-              readOnly: true
-          livenessProbe:
-            httpGet:
-              path: /-/healthy
-              port: 9090
-            initialDelaySeconds: 5
-            periodSeconds: 10
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
       volumes:
-        - name: prometheus-data
-          persistentVolumeClaim:
-            claimName: prometheus-pvc
-        - name: config-volume
+        - name: prometheus-config
           configMap:
             name: prometheus-config
+        - name: prometheus-storage
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -55,8 +54,60 @@ spec:
   selector:
     app: prometheus
   ports:
-    - protocol: TCP
-      port: 9090
+    - port: 9090
       targetPort: 9090
   externalIPs:
     - {{ .Values.prometheus.externalIP }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: care-companion-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: care-companion-platform
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name 

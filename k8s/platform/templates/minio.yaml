@@ -4,7 +4,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: minio-pvc
   namespace: care-companion-platform
-
 spec:
   accessModes:
     - ReadWriteOnce
@@ -17,8 +16,6 @@ kind: Deployment
 metadata:
   name: minio
   namespace: care-companion-platform
-  labels:
-    app: minio
 spec:
   replicas: 1
   selector:
