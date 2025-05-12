@@ -64,4 +64,4 @@ sudo chown -R cc /mnt/object
 sudo chgrp -R cc /mnt/object
 
 # Mount the object storage
-rclone mount chi_tacc:object-persist-project51 /mnt/object --read-only --allow-other --daemon
+rclone mount chi_tacc:object-persist-project51 /mnt/object  --vfs-cache-mode writes  --allow-other --daemon

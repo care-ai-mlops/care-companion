@@ -8,3 +8,4 @@ matplotlib
 mlflow==2.20.2
 ray==2.42.1
 boto3
+ray[client]
