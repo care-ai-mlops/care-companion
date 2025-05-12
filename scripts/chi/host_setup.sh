@@ -2,13 +2,16 @@
 set -e
 
 echo "Installing Docker..."
-curl -sSL https://get.docker.com/ | sudo sh
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
 
 echo "Adding current user to docker group..."
-sudo groupadd -f docker
+sudo groupadd docker
 sudo usermod -aG docker $USER
 newgrp docker
-sudo systemctl restart docker
+
+sudo chown "$USER":"$USER" /home/"$USER"/.docker -R
+sudo chmod g+rwx "$HOME/.docker" -R
 
 echo "Setting up NVIDIA Container Toolkit repository..."
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
