@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 import tritonclient.http as httpclient
@@ -97,12 +97,15 @@ async def metrics():
     return Response(generate_latest(), media_type="text/plain")
 
 @app.post("/predict_chest")
-async def predict_chest(data: Dict[str, Any]):
-    """Predict using chest data"""
+async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
+    """Predict using chest data with a toggle for GPU or CPU model"""
     PREDICTION_COUNTER.inc()
     start_time = time.time()
-    
+
     try:
+        # Select model based on toggle
+        model_name = "chest_gpu" if use_gpu else "chest_openvino"
+
         # Extract image data from request
         image_data = data.get("image")
         if not image_data:
@@ -122,14 +125,14 @@ async def predict_chest(data: Dict[str, Any]):
 
         # Preprocess image using NumPy
         input_data = preprocess_image(image)
-        
+
         # Ensure batch size doesn't exceed model's max_batch_size
         if input_data.shape[0] > 16:
             raise HTTPException(
                 status_code=400, 
                 detail=f"Batch size {input_data.shape[0]} exceeds maximum allowed batch size of 16"
             )
-        
+
         # Prepare input for Triton
         inputs = [
             httpclient.InferInput("input", input_data.shape, "FP32")
@@ -140,7 +143,7 @@ async def predict_chest(data: Dict[str, Any]):
         triton_start_time = time.time()
         try:
             response = triton_client.infer(
-                model_name="chest",
+                model_name=model_name,
                 inputs=inputs
             )
             TRITON_INFERENCE_LATENCY.observe(time.time() - triton_start_time)
@@ -151,10 +154,10 @@ async def predict_chest(data: Dict[str, Any]):
         # Get prediction results and convert to probabilities using NumPy
         output = response.as_numpy("output")
         probabilities = softmax(output)
-        
+
         # Create class mapping
         class_mapping = {0: "NORMAL", 1: "PNEUMONIA", 2: "TUBERCULOSIS"}
-        
+
         # Convert probabilities to dictionary with class labels
         result = {
             "probabilities": {
@@ -162,7 +165,7 @@ async def predict_chest(data: Dict[str, Any]):
                 for i, prob in enumerate(probabilities[0])
             }
         }
-        
+
         PREDICTION_LATENCY.observe(time.time() - start_time)
         return JSONResponse(result)
     except Exception as e:
