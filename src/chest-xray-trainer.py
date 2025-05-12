@@ -81,6 +81,7 @@ class Trainer:
     fine_tune_lr: float = 3e-5
     dropout: float = 0.5
     use_mlflow: bool = True
+    model_backbone: Optional[str] = "resnet18"
 
     def __post_init__(self):
         self.model.to(self.device)
@@ -185,7 +186,7 @@ class Trainer:
             mlflow.log_text(gpu_info, "gpu-info.txt")
             for epoch in tqdm(range(1, self.initial_epochs + 1), desc="Initial Training", unit="epoch"):
                 if use_chek_pt:
-                    ckpt_path = self.save_root / f"best_resnet.pt"
+                    ckpt_path = self.save_root / f"{self.model_backbone}.pt"
                     if os.path.exists(ckpt_path):
                         self.model.load_state_dict(torch.load(ckpt_path))
                         print(f"Checkpoint loaded from {ckpt_path}")
@@ -213,7 +214,7 @@ class Trainer:
                     best_acc, best_wts = val_acc, copy.deepcopy(self.model.state_dict())
                     ckpt_dir = self.save_root
                     ckpt_dir.mkdir(exist_ok=True)
-                    ckpt_path = ckpt_dir / "best_resnet.pt"
+                    ckpt_path = ckpt_dir / f"{self.model_backbone}.pt"
                     torch.save(best_wts, ckpt_path)
 
                     mlflow.log_artifacts(str(ckpt_path), artifact_path="Models")
@@ -251,7 +252,7 @@ class Trainer:
 
             for epoch in tqdm(range(self.initial_epochs + 1, self.total_epochs + 1), desc="Fine Tuning", unit="epoch"):
                 if use_chek_pt:
-                    ckpt_path = self.save_root / f"Models" / f"best_resnet.pt"
+                    ckpt_path = self.save_root / f"Models" / f"{self.model_backbone}.pt"
                     if os.path.exists(ckpt_path):
                         self.model.load_state_dict(torch.load(ckpt_path))
                         print(f"Checkpoint loaded from {ckpt_path}")
@@ -279,7 +280,7 @@ class Trainer:
                     best_acc, best_wts = val_acc, copy.deepcopy(self.model.state_dict())
                     ckpt_dir = self.save_root
                     ckpt_dir.mkdir(exist_ok=True)
-                    ckpt_path = ckpt_dir / "best_resnet.pt"
+                    ckpt_path = ckpt_dir / f"{self.model_backbone}.pt"
                     torch.save(best_wts, ckpt_path)
 
                     mlflow.log_artifacts(str(ckpt_path), artifact_path="Models")
@@ -379,7 +380,8 @@ def main():
         fine_tune_lr=args.fine_tune_lr,
         initial_epochs=args.initial_epochs,
         total_epochs=args.total_epochs,
-        dropout=0.5
+        dropout=0.5,
+        model_backbone=args.model_backbone,
     )
 
     trainer.fit_initial()

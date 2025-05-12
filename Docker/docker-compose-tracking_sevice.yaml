@@ -122,13 +122,14 @@ services:
       - prometheus-init
 
   ray-head:
-    image: rayproject/ray:2.42.1
+    image: rayproject/ray:2.42.1-cpu
     container_name: ray-head
     command: |
       /bin/sh -c "
       mkdir -p /tmp/ray &&
       chown -R root:root /tmp/ray &&
-      ray start --head --port=6379 --ray-client-server-port=10001 --dashboard-host=0.0.0.0 --block --metrics-export-port=8080"
+      ray stop --force >/dev/null 2>&1 || true &&
+      ray start --head --port=6379 --ray-client-server-port=10001 --min-worker-port=11000 --max-worker-port=11020 --dashboard-host=0.0.0.0 --node-ip-address=129.114.25.207 --block --metrics-export-port=8080"
     ports:
       - "6379:6379"
       - "8265:8265"

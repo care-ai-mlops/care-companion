@@ -30,7 +30,7 @@ sudo chgrp -R cc /mnt/object
 
 
 echo "Mounting object storage..."
-rclone mount chi_tacc:object-persist-project51 /mnt/object --read-only --allow-other --daemon
+rclone mount chi_tacc:object-persist-project51 /mnt/object --allow-other --vfs-cache-mode writes --daemon
 
 echo "Object storage mounted at /mnt/object"
 ls -l /mnt/object
