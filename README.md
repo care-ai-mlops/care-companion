@@ -189,7 +189,7 @@ Used to provision resources in two resources:
    - terraform plan
    - terraform apply
 
-Install ansible and kubespray dependencies
+Install ansible and kubespray dependencies <br>
 Deploy Kubernetes using Ansible
 - cd ansible
 - ansible-playbook -i inventory.yml pre_k8s/pre_k8s_configure.yml
