@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 import tritonclient.http as httpclient
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 import time
 from prometheus_client import Counter, Histogram, generate_latest, Gauge
@@ -536,6 +536,123 @@ async def startup_event():
         logger.info("Drift detection initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize drift detection: {e}")
+
+# Add drift simulation state
+drift_simulation_running = False
+drift_simulation_thread = None
+
+def create_synthetic_image(mean=0.5, std=0.1):
+    """Create a synthetic image with controlled distribution"""
+    # Create a random image with normal distribution
+    img_array = np.random.normal(mean, std, (224, 224, 3))
+    # Clip values to [0, 1]
+    img_array = np.clip(img_array, 0, 1)
+    # Convert to uint8
+    img_array = (img_array * 255).astype(np.uint8)
+    # Create PIL Image
+    image = Image.fromarray(img_array)
+    return image
+
+def simulate_drift_background(duration_minutes: int, drift_rate: float = 0.1):
+    """Background task to simulate drift"""
+    global drift_simulation_running
+    
+    # Initial parameters
+    mean = 0.5
+    std = 0.1
+    
+    start_time = datetime.now()
+    end_time = start_time + timedelta(minutes=duration_minutes)
+    
+    while datetime.now() < end_time and drift_simulation_running:
+        try:
+            # Calculate current drift
+            elapsed_minutes = (datetime.now() - start_time).total_seconds() / 60
+            current_mean = mean + (drift_rate * elapsed_minutes / duration_minutes)
+            
+            # Generate image with current distribution
+            image = create_synthetic_image(mean=current_mean, std=std)
+            
+            # Preprocess image
+            input_data = preprocess_image(image)
+            
+            # Store features for drift detection
+            features = input_data.flatten()
+            
+            # Add prediction to data store
+            # Use random prediction and confidence for testing
+            prediction = np.random.randint(0, 3)  # 0, 1, or 2
+            confidence = np.random.uniform(0.7, 0.95)
+            data_store.add_prediction(features, prediction, confidence)
+            
+            # Update drift metrics
+            update_drift_metrics()
+            
+            logger.info(f"Drift simulation - Current mean: {current_mean:.3f}")
+            
+            # Wait for 5 seconds before next iteration
+            time.sleep(5)
+            
+        except Exception as e:
+            logger.error(f"Error in drift simulation: {e}")
+            break
+    
+    drift_simulation_running = False
+
+@app.post("/simulate_drift")
+async def simulate_drift(
+    duration_minutes: int = Query(30, description="Duration of drift simulation in minutes"),
+    drift_rate: float = Query(0.1, description="Rate of drift (how fast the distribution shifts)"),
+    background_tasks: BackgroundTasks = None
+):
+    """Start a drift simulation"""
+    global drift_simulation_running, drift_simulation_thread
+    
+    if drift_simulation_running:
+        raise HTTPException(
+            status_code=400,
+            detail="Drift simulation is already running"
+        )
+    
+    drift_simulation_running = True
+    
+    # Start drift simulation in background thread
+    drift_simulation_thread = threading.Thread(
+        target=simulate_drift_background,
+        args=(duration_minutes, drift_rate)
+    )
+    drift_simulation_thread.start()
+    
+    return {
+        "status": "started",
+        "duration_minutes": duration_minutes,
+        "drift_rate": drift_rate
+    }
+
+@app.post("/stop_drift_simulation")
+async def stop_drift_simulation():
+    """Stop the running drift simulation"""
+    global drift_simulation_running
+    
+    if not drift_simulation_running:
+        raise HTTPException(
+            status_code=400,
+            detail="No drift simulation is running"
+        )
+    
+    drift_simulation_running = False
+    if drift_simulation_thread:
+        drift_simulation_thread.join()
+    
+    return {"status": "stopped"}
+
+@app.get("/drift_simulation_status")
+async def get_drift_simulation_status():
+    """Get the current status of drift simulation"""
+    return {
+        "running": drift_simulation_running,
+        "thread_alive": drift_simulation_thread.is_alive() if drift_simulation_thread else False
+    }
 
 if __name__ == "__main__":
     import uvicorn
