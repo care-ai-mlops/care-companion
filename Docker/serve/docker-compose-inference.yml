@@ -28,7 +28,6 @@ services:
     restart: unless-stopped
     networks:
       - inference_network
-      - tracking_network
 
   fastapi:
     build:
@@ -54,12 +53,8 @@ services:
     restart: unless-stopped
     networks:
       - inference_network
-      - tracking_network
 
 networks:
   inference_network:
     name: inference_network
     driver: bridge
-  tracking_network:
-    name: tracking_network
-    external: true
