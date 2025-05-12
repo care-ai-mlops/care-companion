@@ -16,7 +16,7 @@ While the AI-powered detection system enhances diagnostic accuracy, it should no
 | Mamidala Sai Sandeep    | Model Training |[Commits](https://github.com/care-ai-mlops/care-companion/commits/main/?author=Sandeep2229)|
 
 ## System Design
-![Image](images/systemdesign.png)
+![Image](images/draw.png)
 
 
 ## Summary of outside materials
