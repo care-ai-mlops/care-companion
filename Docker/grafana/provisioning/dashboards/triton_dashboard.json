@@ -6,6 +6,9 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
+  "uid": "triton-custom-dashboard",
+  "title": "Triton Server Metrics",
+  "tags": ["triton", "custom"],
   "links": [],
   "liveNow": false,
   "panels": [
@@ -88,8 +91,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "nv_inference_compute_duration_us{model=\"chest\"} / 1000000",
-          "legendFormat": "Compute Time",
+          "expr": "nv_inference_compute_duration_us{model=\"chest_gpu\"} / 1000000",
+          "legendFormat": "GPU Compute Time",
           "refId": "A"
         },
         {
@@ -97,12 +100,108 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "nv_inference_queue_duration_us{model=\"chest\"} / 1000000",
-          "legendFormat": "Queue Time",
+          "expr": "nv_inference_queue_duration_us{model=\"chest_gpu\"} / 1000000",
+          "legendFormat": "GPU Queue Time",
           "refId": "B"
         }
       ],
-      "title": "Model Inference Times",
+      "title": "GPU Model Inference Times",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nv_inference_compute_duration_us{model=\"chest_openvino\"} / 1000000",
+          "legendFormat": "CPU Compute Time",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nv_inference_queue_duration_us{model=\"chest_openvino\"} / 1000000",
+          "legendFormat": "CPU Queue Time",
+          "refId": "B"
+        }
+      ],
+      "title": "CPU Model Inference Times",
       "type": "timeseries"
     },
     {
@@ -161,102 +260,6 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": ["mean", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(nv_inference_request_success{model=\"chest\"}[5m])",
-          "legendFormat": "Success Rate",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(nv_inference_request_failure{model=\"chest\"}[5m])",
-          "legendFormat": "Failure Rate",
-          "refId": "B"
-        }
-      ],
-      "title": "Request Success/Failure Rate",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
         "y": 8
       },
@@ -279,12 +282,21 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "nv_gpu_utilization",
-          "legendFormat": "GPU Utilization",
+          "expr": "rate(nv_inference_request_success{model=\"chest_gpu\"}[5m])",
+          "legendFormat": "GPU Success Rate",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(nv_inference_request_failure{model=\"chest_gpu\"}[5m])",
+          "legendFormat": "GPU Failure Rate",
+          "refId": "B"
         }
       ],
-      "title": "GPU Utilization",
+      "title": "GPU Model Request Success/Failure Rate",
       "type": "timeseries"
     },
     {
@@ -365,19 +377,201 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "nv_inference_queue_size{model=\"chest\"}",
-          "legendFormat": "Queue Size",
+          "expr": "rate(nv_inference_request_success{model=\"chest_openvino\"}[5m])",
+          "legendFormat": "CPU Success Rate",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(nv_inference_request_failure{model=\"chest_openvino\"}[5m])",
+          "legendFormat": "CPU Failure Rate",
+          "refId": "B"
+        }
+      ],
+      "title": "CPU Model Request Success/Failure Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nv_gpu_utilization{model=\"chest_gpu\"} * 100",
+          "legendFormat": "GPU Utilization",
           "refId": "A"
         }
       ],
-      "title": "Inference Queue Size",
+      "title": "GPU Utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nv_gpu_memory_used_bytes{model=\"chest_gpu\"}",
+          "legendFormat": "GPU Memory Used",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Memory Usage",
       "type": "timeseries"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["triton", "inference"],
   "templating": {
     "list": []
   },
@@ -387,8 +581,6 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Triton Server Dashboard",
-  "uid": "triton-server",
   "version": 1,
   "weekStart": ""
 } 

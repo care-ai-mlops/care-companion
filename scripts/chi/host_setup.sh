@@ -2,13 +2,12 @@
 set -e
 
 echo "Installing Docker..."
-curl -sSL https://get.docker.com/ | sudo sh
+curl -fsSL https://get.docker.com | sudo sh
 
 echo "Adding current user to docker group..."
 sudo groupadd -f docker
 sudo usermod -aG docker $USER
-newgrp docker
-sudo systemctl restart docker
+sudo chmod 666 /var/run/docker.sock
 
 echo "Setting up NVIDIA Container Toolkit repository..."
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -48,4 +47,3 @@ curl https://rclone.org/install.sh | sudo bash
 # Update rclone config file
 sudo sed -i '/^#user_allow_other/s/^#//' /etc/fuse.conf
 mkdir -p ~/.config/rclone
-

@@ -2,7 +2,7 @@ variable "suffix" {
   description = "Suffix for resource names (project ID)"
   type        = string
   nullable = false
-  default = "project51"
+  default = "project51_gpu"
 }
 
 variable "key" {
@@ -14,7 +14,7 @@ variable "key" {
 variable "nodes" {
   type = map(string)
   default = {
-    "node1" = "192.168.1.11"
+    "node1" = "192.168.1.10"
   }
 }
 

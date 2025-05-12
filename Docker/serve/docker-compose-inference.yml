@@ -56,4 +56,5 @@ services:
 
 networks:
   inference_network:
+    name: inference_network
     driver: bridge

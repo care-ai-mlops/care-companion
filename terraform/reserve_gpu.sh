@@ -10,7 +10,7 @@ RESERVATION="gpu_compute_gigaio_project51"
 
 echo "Creating lease: $RESERVATION_NAME"
 openstack reservation lease create \
-  --reservation min=1,max=1,resource_type=physical:host,resource_properties='["=", "$node_type", "compute_icelake_r650"]' \
+  --reservation min=1,max=1,resource_type=physical:host,resource_properties='["=", "$node_type", "compute_gigaio"]' \
   "$RESERVATION"
 
 LEASE_ID=$(openstack reservation lease show "$RESERVATION" -f value -c id)

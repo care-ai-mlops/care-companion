@@ -1,27 +1,4 @@
 
-resource "openstack_networking_network_v2" "private_net" {
-  name = "private-net-mlops-${var.suffix}"
-  port_security_enabled = false
-}
-
-resource "openstack_networking_subnet_v2" "private_subnet" {
-  name       = "private-subnet-mlops-${var.suffix}"
-  network_id = openstack_networking_network_v2.private_net.id
-  cidr       = "192.168.1.0/24"
-  no_gateway = true
-}
-
-resource "openstack_networking_port_v2" "private_net_ports" {
-  for_each              = var.nodes
-  name                  = "port-${each.key}-mlops-${var.suffix}"
-  network_id            = openstack_networking_network_v2.private_net.id
-  port_security_enabled = false
-
-  fixed_ip {
-    subnet_id  = openstack_networking_subnet_v2.private_subnet.id
-    ip_address = each.value
-  }
-}
 
 resource "openstack_networking_port_v2" "sharednet1_ports" {
   for_each   = var.nodes
@@ -29,7 +6,6 @@ resource "openstack_networking_port_v2" "sharednet1_ports" {
     network_id = data.openstack_networking_network_v2.sharednet1.id
     security_group_ids = [
       data.openstack_networking_secgroup_v2.allow_ssh.id,
-      data.openstack_networking_secgroup_v2.allow_30000_32767.id
     ]
 }
 
@@ -45,10 +21,6 @@ resource "openstack_compute_instance_v2" "node1" {
 
   network {
     port = openstack_networking_port_v2.sharednet1_ports[each.key].id
-  }
-
-  network {
-    port = openstack_networking_port_v2.private_net_ports[each.key].id
   }
 
   scheduler_hints {
