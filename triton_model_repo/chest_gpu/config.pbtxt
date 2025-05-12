@@ -1,0 +1,29 @@
+name: "chest_gpu"
+backend: "onnxruntime"
+max_batch_size: 16
+input [
+  {
+    name: "input"  # has to match ONNX model's input name
+    data_type: TYPE_FP32
+    dims: [3, 224, 224]  # has to match ONNX input shape
+  }
+]
+output [
+  {
+    name: "output"  # has to match ONNX model output name
+    data_type: TYPE_FP32  # output is a list of probabilities
+    dims: [3]  # 
+  }
+]
+  instance_group [
+    {
+      count: 1
+      kind: KIND_GPU
+      gpus: [ 0 ]
+    }
+]
+
+dynamic_batching {
+  preferred_batch_size: [4, 8, 16]
+  max_queue_delay_microseconds: 5000
+}
