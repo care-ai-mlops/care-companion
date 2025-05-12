@@ -19,7 +19,9 @@ spec:
       - - name: clone-repo
           template: git-clone
       - - name: kaniko-build
-          template: kaniko
+          template: kaniko-build-fastapi
+      - - name: kaniko-build
+          template: kaniko-build-triton
 
   - name: git-clone
     container:
@@ -46,7 +48,7 @@ spec:
       - name: workdir
         mountPath: /mnt/workspace
 
-  - name: kaniko-fastapi
+  - name: kaniko-build-fastapi
     container:
       image: gcr.io/kaniko-project/executor:latest
       args:
@@ -60,7 +62,7 @@ spec:
         - name: workdir
           mountPath: /mnt/workspace
 
-  - name: kaniko-triton
+  - name: kaniko-build-triton
     container:
       image: gcr.io/kaniko-project/executor:latest
       args:
@@ -73,3 +75,4 @@ spec:
       volumeMounts:
         - name: workdir
           mountPath: /mnt/workspace
+    
