@@ -2,11 +2,12 @@
 set -e
 
 echo "Installing Docker..."
-curl -sSL https://get.docker.com/ | sudo sh
+curl -fsSL https://get.docker.com | sudo sh
 
 echo "Adding current user to docker group..."
 sudo groupadd -f docker
 sudo usermod -aG docker $USER
+sudo chmod 666 /var/run/docker.sock
 
 echo "Updating Docker daemon configuration for cgroups..."
 # Ensure jq is installed
