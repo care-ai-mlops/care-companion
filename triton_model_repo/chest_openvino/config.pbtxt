@@ -1,6 +1,6 @@
 name: "chest_openvino"
 backend: "openvino"
-max_batch_size: 16
+max_batch_size: 1024
 input [
   {
     name: "input"  # has to match ONNX model's input name
@@ -22,8 +22,8 @@ output [
     }
 ]
 dynamic_batching {
-  preferred_batch_size: [4, 8, 16]
-  max_queue_delay_microseconds: 5000
+  preferred_batch_size: [1, 16, 64, 256]
+  max_queue_delay_microseconds: 1000
 }
 parameters {
   key: "ENABLE_BATCH_PADDING"

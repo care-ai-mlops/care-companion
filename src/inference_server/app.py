@@ -230,7 +230,7 @@ async def home():
             "predict_chest": "/predict_chest",
             "simulate_drift": "/simulate_drift",
             "stop_drift_simulation": "/stop_drift_simulation",
-            "drift_simulation_status": "/drift_simulation_status"
+            "drift_simulation_status": "/drift_simulation_status",
         }
     })
 
