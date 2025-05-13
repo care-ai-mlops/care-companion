@@ -11,17 +11,17 @@
   "panels": [
     {
       "type": "row",
-      "title": "Model Drift Monitoring",
+      "title": "KL Divergence Model Drift Monitoring",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
     },
     {
       "type": "gauge",
-      "title": "Current Drift Score (MMD)",
+      "title": "Current KL Divergence Score",
       "gridPos": { "x": 0, "y": 1, "w": 8, "h": 8 },
       "targets": [
         {
-          "expr": "drift_score{metric_type=\"mmd\"}",
-          "legendFormat": "MMD Score",
+          "expr": "drift_score",
+          "legendFormat": "KL Divergence",
           "refId": "A"
         }
       ],
@@ -42,16 +42,16 @@
     },
     {
       "type": "timeseries",
-      "title": "Drift Score History",
+      "title": "KL Divergence History",
       "gridPos": { "x": 8, "y": 1, "w": 16, "h": 8 },
       "targets": [
         {
-          "expr": "drift_score{metric_type=\"mmd\"}",
-          "legendFormat": "MMD Score",
+          "expr": "drift_score",
+          "legendFormat": "KL Divergence",
           "refId": "A"
         },
         {
-          "expr": "drift_threshold{metric_type=\"mmd\"}",
+          "expr": "drift_threshold",
           "legendFormat": "Threshold",
           "refId": "B"
         }
@@ -67,12 +67,12 @@
     },
     {
       "type": "row",
-      "title": "Drift Detection System",
+      "title": "KL Divergence Drift Detection System",
       "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
     },
     {
       "type": "stat",
-      "title": "Drift Events Rate",
+      "title": "KL Divergence Drift Events Rate",
       "gridPos": { "x": 0, "y": 10, "w": 8, "h": 8 },
       "targets": [
         {
@@ -112,7 +112,7 @@
     },
     {
       "type": "gauge",
-      "title": "Drift Detection Window",
+      "title": "KL Divergence Window Size",
       "gridPos": { "x": 8, "y": 10, "w": 8, "h": 8 },
       "targets": [
         {
@@ -124,13 +124,13 @@
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "max": 20,
+          "max": 100,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 15 }
+              { "color": "yellow", "value": 25 },
+              { "color": "red", "value": 75 }
             ]
           }
         }
@@ -138,7 +138,7 @@
     },
     {
       "type": "stat",
-      "title": "Last Drift Update",
+      "title": "Last KL Divergence Update",
       "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
       "targets": [
         {
@@ -184,12 +184,12 @@
     },
     {
       "type": "timeseries",
-      "title": "Model Accuracy Over Time",
+      "title": "Prediction Rate",
       "gridPos": { "x": 0, "y": 19, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "model_accuracy",
-          "legendFormat": "{{window}}",
+          "expr": "rate(prediction_total[5m])",
+          "legendFormat": "Predictions/sec",
           "refId": "A"
         }
       ],
@@ -199,7 +199,7 @@
             "fillOpacity": 20,
             "lineWidth": 2
           },
-          "unit": "percentunit"
+          "unit": "ops"
         }
       }
     },
@@ -223,59 +223,12 @@
           "unit": "s"
         }
       }
-    },
-    {
-      "type": "row",
-      "title": "Inference Statistics",
-      "gridPos": { "x": 0, "y": 27, "w": 24, "h": 1 }
-    },
-    {
-      "type": "timeseries",
-      "title": "Prediction Rate",
-      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "expr": "rate(prediction_total[5m])",
-          "legendFormat": "Predictions/sec",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 20,
-            "lineWidth": 2
-          },
-          "unit": "ops"
-        }
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Triton Inference Latency",
-      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "expr": "rate(triton_inference_latency_seconds_sum[5m]) / rate(triton_inference_latency_seconds_count[5m])",
-          "legendFormat": "Average Latency",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 20,
-            "lineWidth": 2
-          },
-          "unit": "s"
-        }
-      }
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["monitoring", "model", "drift"],
+  "tags": ["monitoring", "model", "drift", "kl-divergence"],
   "templating": {
     "list": []
   },
@@ -285,7 +238,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Model Monitoring Dashboard v2",
-  "uid": "model-monitoring-v3",
+  "title": "KL Divergence Model Monitoring Dashboard",
+  "uid": "model-monitoring-kl",
   "version": 1
 } 
