@@ -16,7 +16,7 @@
     },
     {
       "type": "gauge",
-      "title": "Current Drift Score (MMD)",
+      "title": "Current MMD Score (Sliding Window)",
       "gridPos": { "x": 0, "y": 1, "w": 8, "h": 8 },
       "targets": [
         {
@@ -42,7 +42,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Drift Score History",
+      "title": "MMD Score History (Sliding Window)",
       "gridPos": { "x": 8, "y": 1, "w": 16, "h": 8 },
       "targets": [
         {
@@ -61,7 +61,8 @@
           "custom": {
             "fillOpacity": 20,
             "lineWidth": 2
-          }
+          },
+          "unit": "percentunit"
         }
       }
     },
@@ -112,7 +113,7 @@
     },
     {
       "type": "gauge",
-      "title": "Drift Detection Window",
+      "title": "Sliding Window Size",
       "gridPos": { "x": 8, "y": 10, "w": 8, "h": 8 },
       "targets": [
         {
@@ -124,13 +125,13 @@
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "max": 20,
+          "max": 10,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 15 }
+              { "color": "yellow", "value": 3 },
+              { "color": "red", "value": 4 }
             ]
           }
         }
@@ -138,7 +139,7 @@
     },
     {
       "type": "stat",
-      "title": "Last Drift Update",
+      "title": "Last MMD Update",
       "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
       "targets": [
         {

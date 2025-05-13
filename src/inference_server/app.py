@@ -62,16 +62,22 @@ class DataStore:
         self.drift_queue = asyncio.Queue()
         self.drift_task = None
         self.last_drift_update = time.time()
+        self.sliding_window_size = 5  # Changed from 100 to 5 for testing
+        self.reference_data = None
+        self.last_reference_update = time.time()
+        self.reference_update_interval = 3600  # Update reference data every hour
+        self.mmd_history = deque(maxlen=1000)  # Store MMD scores for visualization
 
     def initialize_drift_detector(self, model: nn.Module, x_ref: np.ndarray):
         """Initialize the drift detector with reference data"""
+        self.reference_data = x_ref
         feature_model = HiddenOutput(model, layer=-1)
         preprocess_fn = lambda x: preprocess_drift(x, model=feature_model)
         
         self.drift_detector = MMDDriftOnline(
             x_ref=x_ref,
             ert=300,  # Expected run time between false positives
-            window_size=10,  # Number of test samples to use in each MMD check
+            window_size=5,  # Small window for immediate drift detection
             backend='pytorch',
             preprocess_fn=preprocess_fn
         )
@@ -80,45 +86,49 @@ class DataStore:
         DRIFT_THRESHOLD.labels(metric_type='mmd').set(self.drift_detector.threshold)
         DRIFT_WINDOW_SIZE.set(self.drift_detector.window_size)
 
-    async def start_drift_monitoring(self):
-        """Start the drift monitoring task"""
-        if self.drift_task is None:
-            self.drift_task = asyncio.create_task(self._process_drift_queue())
+    def calculate_sliding_window_mmd(self, current_features: np.ndarray) -> float:
+        """Calculate MMD score using a sliding window approach"""
+        with self.lock:
+            if len(self.features) < self.sliding_window_size:
+                return 0.0
+            
+            # Get the most recent window of features
+            recent_features = np.array(list(self.features)[-self.sliding_window_size:])
+            
+            # Calculate MMD between current features and recent window
+            try:
+                result = self.drift_detector.predict(current_features)
+                mmd_score = result['data']['test_stat']
+                self.mmd_history.append(mmd_score)
+                return mmd_score
+            except Exception as e:
+                logger.error(f"Error calculating sliding window MMD: {e}")
+                return 0.0
 
     async def _process_drift_queue(self):
         """Process the drift detection queue"""
         while True:
             try:
                 features = await self.drift_queue.get()
+                
                 if self.drift_detector is not None:
-                    # Run drift detection in thread pool to avoid blocking
-                    loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(
-                        self.drift_executor,
-                        self._detect_drift,
-                        features
-                    )
+                    # Calculate sliding window MMD
+                    mmd_score = self.calculate_sliding_window_mmd(features)
                     
                     # Update drift metrics
-                    if result['is_drift']:
+                    DRIFT_SCORE.labels(metric_type='mmd').set(mmd_score)
+                    DRIFT_TEST_STAT.observe(mmd_score)
+                    
+                    # Check if drift is detected
+                    if mmd_score > self.drift_detector.threshold:
                         DRIFT_EVENTS.inc()
-                    DRIFT_TEST_STAT.observe(result['test_stat'])
-                    DRIFT_SCORE.labels(metric_type='mmd').set(result['test_stat'])
+                    
                     self.last_drift_update = time.time()
                     DRIFT_LAST_UPDATE.set(self.last_drift_update)
                     
                 self.drift_queue.task_done()
             except Exception as e:
                 logger.error(f"Error in drift detection: {e}")
-
-    def _detect_drift(self, features: np.ndarray) -> Dict[str, Any]:
-        """Detect drift in features using alibi-detect"""
-        try:
-            result = self.drift_detector.predict(features)
-            return result['data']
-        except Exception as e:
-            logger.error(f"Error in drift detection: {e}")
-            return {'is_drift': False, 'test_stat': 0.0}
 
     def add_prediction(self, features, prediction, confidence):
         with self.lock:
@@ -131,15 +141,16 @@ class DataStore:
             if self.drift_detector is not None:
                 asyncio.create_task(self.drift_queue.put(features))
 
-    def get_recent_data(self, window_hours):
+    def get_mmd_history(self, window_hours: int = 24) -> List[float]:
+        """Get MMD score history for visualization"""
         with self.lock:
             cutoff = datetime.now() - timedelta(hours=window_hours)
-            mask = [t >= cutoff for t in self.timestamps]
-            return (
-                [f for f, m in zip(self.features, mask) if m],
-                [p for p, m in zip(self.predictions, mask) if m],
-                [c for c, m in zip(self.confidences, mask) if m]
-            )
+            timestamps = list(self.timestamps)
+            mmd_scores = list(self.mmd_history)
+            
+            # Filter scores within the time window
+            valid_indices = [i for i, t in enumerate(timestamps) if t >= cutoff]
+            return [mmd_scores[i] for i in valid_indices if i < len(mmd_scores)]
 
 # Initialize data store
 data_store = DataStore()
@@ -179,7 +190,7 @@ def calculate_drift_scores(reference_data: List[float], current_data: List[float
 @lru_cache(maxsize=32)
 def get_cached_data(window_hours: int) -> tuple:
     """Cache frequently accessed data to avoid repeated calculations"""
-    return data_store.get_recent_data(window_hours)
+    return data_store.get_mmd_history(window_hours)
 
 def process_window(window: str, features: List[List[float]], preds: List[int], confs: List[float]) -> None:
     """Process a single time window's data"""
@@ -191,15 +202,15 @@ def process_window(window: str, features: List[List[float]], preds: List[int], c
         # Convert features to numpy array
         features_array = np.array(features)
         # Get drift detection result
-        drift_result = data_store._detect_drift(features_array)
+        drift_result = data_store.calculate_sliding_window_mmd(features_array)
         
         # Update drift metrics
-        if drift_result['is_drift']:
+        if drift_result > data_store.drift_detector.threshold:
             DRIFT_EVENTS.inc()
-        DRIFT_TEST_STAT.observe(drift_result['test_stat'])
+        DRIFT_TEST_STAT.observe(drift_result)
         
         # Update data drift score
-        DATA_DRIFT_SCORE.labels(metric_name='mmd').set(drift_result['test_stat'])
+        DATA_DRIFT_SCORE.labels(metric_name='mmd').set(drift_result)
     
     # Update model accuracy
     if preds and confs:
@@ -218,8 +229,8 @@ def update_drift_metrics():
     # Process windows in parallel using ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = []
-        for window, (features, preds, confs) in windows_data.items():
-            futures.append(executor.submit(process_window, window, features, preds, confs))
+        for window, mmd_scores in windows_data.items():
+            futures.append(executor.submit(process_window, window, [], [], mmd_scores))
         
         # Wait for all futures to complete
         for future in futures:
@@ -533,7 +544,7 @@ async def startup_event():
         data_store.initialize_drift_detector(model, reference_data)
         
         # Start drift monitoring
-        await data_store.start_drift_monitoring()
+        await data_store._process_drift_queue()
         
         logger.info("Drift detection initialized successfully")
     except Exception as e:
@@ -673,6 +684,20 @@ async def get_drift_simulation_status():
         "running": drift_simulation_running,
         "thread_alive": drift_simulation_thread.is_alive() if drift_simulation_thread else False
     }
+
+# Add new endpoint to get MMD history
+@app.get("/mmd_history")
+async def get_mmd_history(window_hours: int = Query(24, description="Time window in hours")):
+    """Get MMD score history for visualization"""
+    try:
+        mmd_scores = data_store.get_mmd_history(window_hours)
+        return JSONResponse({
+            "mmd_scores": mmd_scores,
+            "timestamps": [t.isoformat() for t in data_store.timestamps[-len(mmd_scores):]]
+        })
+    except Exception as e:
+        logger.error(f"Error getting MMD history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
