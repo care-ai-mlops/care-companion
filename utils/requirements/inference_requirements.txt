@@ -1,36 +1,24 @@
 # Web Framework
-fastapi>=0.68.0
-uvicorn>=0.15.0
+fastapi
+uvicorn
 
 # Model Serving
-tritonclient[all]>=2.34.0
-numpy>=1.21.0
-torch>=2.0.0
-torchvision>=0.15.0
+tritonclient[all]
+numpy
 
 # Image Processing
-Pillow>=9.0.0
-
-# Drift Detection
-alibi-detect>=0.11.0
+Pillow
 
 # Monitoring & Metrics
-prometheus-client>=0.12.0
-prometheus-fastapi-instrumentator>=5.7.1
+prometheus-client
+prometheus-fastapi-instrumentator
 
-# Scientific Computing
-scipy>=1.7.0
 
 # Type Hints
 typing-extensions>=4.0.0
 
 # Async Support
-aiofiles>=0.8.0
-python-multipart>=0.0.5
+aiofiles
+python-multipart
 
-# Development & Testing
-pytest>=6.2.5
-pytest-asyncio>=0.16.0
-httpx>=0.23.0 
-
-mlflow==2.20.2
+requests
