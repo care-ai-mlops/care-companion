@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 import tritonclient.http as httpclient
@@ -24,6 +24,9 @@ from alibi_detect.cd.pytorch import HiddenOutput, preprocess_drift
 import torch
 import torch.nn as nn
 from torchvision import transforms
+from pydantic import BaseModel
+import base64
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -348,7 +351,6 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
 
         # Convert base64 image data to PIL Image
         try:
-            import base64
             image_bytes = base64.b64decode(image_data)
             image = Image.open(io.BytesIO(image_bytes))
         except Exception as e:
@@ -573,22 +575,41 @@ def simulate_drift_background(duration_minutes: int, drift_rate: float = 0.1):
             # Generate image with current distribution
             image = create_synthetic_image(mean=current_mean, std=std)
             
-            # Preprocess image
-            input_data = preprocess_image(image)
+            # Convert image to base64
+            buffered = io.BytesIO()
+            image.save(buffered, format="PNG")
+            image_b64 = base64.b64encode(buffered.getvalue()).decode()
             
-            # Store features for drift detection
-            features = input_data.flatten()
+            # Prepare request data
+            data = {
+                "image": image_b64,
+                "use_gpu": False  # Use CPU model for testing
+            }
             
-            # Add prediction to data store
-            # Use random prediction and confidence for testing
-            prediction = np.random.randint(0, 3)  # 0, 1, or 2
-            confidence = np.random.uniform(0.7, 0.95)
-            data_store.add_prediction(features, prediction, confidence)
+            # Call the prediction endpoint
+            response = requests.post(
+                "http://localhost:5000/predict_chest",
+                json=data
+            )
             
-            # Update drift metrics
-            update_drift_metrics()
-            
-            logger.info(f"Drift simulation - Current mean: {current_mean:.3f}")
+            if response.status_code == 200:
+                # Calculate drift score based on the current mean shift
+                drift_score = min(abs(current_mean - mean) / drift_rate, 1.0)
+                
+                # Update drift metrics
+                DRIFT_SCORE.labels(metric_type='mmd').set(drift_score)
+                DRIFT_TEST_STAT.observe(drift_score)
+                
+                # If drift score exceeds threshold, increment drift events
+                if drift_score > 0.7:  # Using 0.7 as threshold
+                    DRIFT_EVENTS.inc()
+                
+                # Update last drift update timestamp
+                DRIFT_LAST_UPDATE.set(time.time())
+                
+                logger.info(f"Drift simulation - Current mean: {current_mean:.3f}, Drift score: {drift_score:.3f}")
+            else:
+                logger.error(f"Prediction request failed: {response.status_code}")
             
             # Wait for 5 seconds before next iteration
             time.sleep(5)
@@ -599,11 +620,10 @@ def simulate_drift_background(duration_minutes: int, drift_rate: float = 0.1):
     
     drift_simulation_running = False
 
-@app.post("/simulate_drift")
+@app.get("/simulate_drift")
 async def simulate_drift(
     duration_minutes: int = Query(30, description="Duration of drift simulation in minutes"),
-    drift_rate: float = Query(0.1, description="Rate of drift (how fast the distribution shifts)"),
-    background_tasks: BackgroundTasks = None
+    drift_rate: float = Query(0.1, description="Rate of drift (how fast the distribution shifts)")
 ):
     """Start a drift simulation"""
     global drift_simulation_running, drift_simulation_thread
@@ -629,7 +649,7 @@ async def simulate_drift(
         "drift_rate": drift_rate
     }
 
-@app.post("/stop_drift_simulation")
+@app.get("/stop_drift_simulation")
 async def stop_drift_simulation():
     """Stop the running drift simulation"""
     global drift_simulation_running

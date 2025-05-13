@@ -6,7 +6,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "uid": "triton-custom-dashboard-v2",
+  "uid": "triton-custom-dashboard-v3",
   "title": "Triton Server Metrics",
   "tags": ["triton", "custom"],
   "links": [],
