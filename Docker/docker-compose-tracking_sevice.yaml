@@ -177,7 +177,6 @@ services:
       - GF_AUTH_PROXY_ENABLED=true
       - GF_AUTH_PROXY_AUTO_SIGN_UP=true
       - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=5s
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards
       - GF_DASHBOARDS_ALLOW_UI_UPDATES=true
       - GF_DASHBOARDS_DISABLE_DELETION=false
     healthcheck:
