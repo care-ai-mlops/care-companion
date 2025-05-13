@@ -48,6 +48,12 @@ class DataStore:
         self.window_size = 50  # Number of samples to use for drift detection
         self.drift_detection_thread = None
         self.stop_drift_detection = threading.Event()
+        
+        # Add storage for prediction accuracy tracking
+        self.predictions = deque(maxlen=max_size)
+        self.actual_labels = deque(maxlen=max_size)
+        self.accuracy_update_thread = None
+        self.stop_accuracy_update = threading.Event()
 
     def initialize_drift_detector(self, reference_data: np.ndarray):
         """Initialize the drift detector with reference data"""
@@ -65,6 +71,12 @@ class DataStore:
         self.drift_detection_thread = threading.Thread(target=self._run_drift_detection, daemon=True)
         self.drift_detection_thread.start()
         logger.info("Started background drift detection thread")
+        
+        # Start the background accuracy update thread
+        self.stop_accuracy_update.clear()
+        self.accuracy_update_thread = threading.Thread(target=self._run_accuracy_update, daemon=True)
+        self.accuracy_update_thread.start()
+        logger.info("Started background accuracy update thread")
 
     def _run_drift_detection(self):
         """Background thread for drift detection"""
@@ -114,11 +126,73 @@ class DataStore:
             logger.error(f"Error in drift detection: {e}")
             return {'is_drift': False, 'kl_divergence': 0.0}
 
-    def add_prediction(self, features):
+    def _run_accuracy_update(self):
+        """Background thread for updating accuracy metrics"""
+        logger.info("Accuracy update thread started")
+        while not self.stop_accuracy_update.is_set():
+            try:
+                # Update accuracy metrics every 60 seconds
+                self._update_accuracy_metrics()
+            except Exception as e:
+                logger.error(f"Error in accuracy update thread: {e}")
+            
+            # Sleep for 60 seconds before next update
+            time.sleep(60)
+        
+        logger.info("Accuracy update thread stopped")
+    
+    def _update_accuracy_metrics(self):
+        """Update accuracy metrics based on recent predictions"""
+        with self.lock:
+            if len(self.predictions) == 0 or len(self.actual_labels) == 0:
+                # No data to update metrics with
+                return
+            
+            # Calculate accuracy for different time windows
+            now = datetime.now()
+            
+            # 1-hour window
+            hour_ago = now - timedelta(hours=1)
+            hour_mask = [t >= hour_ago for t in self.timestamps]
+            hour_preds = [p for p, m in zip(self.predictions, hour_mask) if m]
+            hour_labels = [l for l, m in zip(self.actual_labels, hour_mask) if m]
+            
+            # 6-hour window
+            six_hours_ago = now - timedelta(hours=6)
+            six_hour_mask = [t >= six_hours_ago for t in self.timestamps]
+            six_hour_preds = [p for p, m in zip(self.predictions, six_hour_mask) if m]
+            six_hour_labels = [l for l, m in zip(self.actual_labels, six_hour_mask) if m]
+            
+            # 24-hour window
+            day_ago = now - timedelta(hours=24)
+            day_mask = [t >= day_ago for t in self.timestamps]
+            day_preds = [p for p, m in zip(self.predictions, day_mask) if m]
+            day_labels = [l for l, m in zip(self.actual_labels, day_mask) if m]
+            
+            # Calculate and update metrics
+            if hour_preds and hour_labels:
+                hour_acc = sum(1 for p, l in zip(hour_preds, hour_labels) if p == l) / len(hour_preds)
+                MODEL_ACCURACY.labels(window="1h").set(hour_acc)
+            
+            if six_hour_preds and six_hour_labels:
+                six_hour_acc = sum(1 for p, l in zip(six_hour_preds, six_hour_labels) if p == l) / len(six_hour_preds)
+                MODEL_ACCURACY.labels(window="6h").set(six_hour_acc)
+            
+            if day_preds and day_labels:
+                day_acc = sum(1 for p, l in zip(day_preds, day_labels) if p == l) / len(day_preds)
+                MODEL_ACCURACY.labels(window="24h").set(day_acc)
+
+    def add_prediction(self, features, predicted_class=None, actual_class=None):
         """Add a new prediction to the data store"""
         with self.lock:
             self.features.append(features)
             self.timestamps.append(datetime.now())
+            
+            # Store prediction and actual label if available
+            if predicted_class is not None:
+                self.predictions.append(predicted_class)
+            if actual_class is not None:
+                self.actual_labels.append(actual_class)
 
     def get_recent_data(self, window_hours):
         """Get data from the last window_hours"""
@@ -128,12 +202,18 @@ class DataStore:
             return [f for f, m in zip(self.features, mask) if m]
     
     def shutdown(self):
-        """Shutdown the drift detection thread"""
+        """Shutdown the background threads"""
         if self.drift_detection_thread and self.drift_detection_thread.is_alive():
             logger.info("Shutting down drift detection thread...")
             self.stop_drift_detection.set()
             self.drift_detection_thread.join(timeout=10)
             logger.info("Drift detection thread stopped")
+        
+        if self.accuracy_update_thread and self.accuracy_update_thread.is_alive():
+            logger.info("Shutting down accuracy update thread...")
+            self.stop_accuracy_update.set()
+            self.accuracy_update_thread.join(timeout=10)
+            logger.info("Accuracy update thread stopped")
 
 # Initialize data store
 data_store = DataStore()
@@ -309,11 +389,15 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
         confidence = float(probabilities[0][predicted_class_idx])
 
         # Store prediction data for drift detection (in a non-blocking way)
-        data_store.add_prediction(features)
+        data_store.add_prediction(features, predicted_class=predicted_class)
 
         # Record metrics
         CLASS_PREDICTIONS.labels(class_name=predicted_class).inc()
-        PREDICTION_CONFIDENCE.labels(class_name=predicted_class).set(confidence)
+        
+        # Update confidence metrics for all classes, not just the predicted one
+        for idx, class_name in class_mapping.items():
+            class_confidence = float(probabilities[0][idx])
+            PREDICTION_CONFIDENCE.labels(class_name=class_name).set(class_confidence)
 
         # Convert probabilities to dictionary with class labels
         result = {
