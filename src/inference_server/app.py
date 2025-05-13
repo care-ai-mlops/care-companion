@@ -228,8 +228,9 @@ async def home():
             "health": "/health",
             "metrics": "/metrics",
             "predict_chest": "/predict_chest",
-            "predict_wrist": "/predict_wrist",
-            "gen_report": "/gen_report"
+            "simulate_drift": "/simulate_drift",
+            "stop_drift_simulation": "/stop_drift_simulation",
+            "drift_simulation_status": "/drift_simulation_status"
         }
     })
 
