@@ -15,8 +15,8 @@
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "avg(prediction_confidence) by (class_name)",
-          "legendFormat": "{{class_name}}",
+          "expr": "avg(prediction_confidence)",
+          "legendFormat": "Average Confidence",
           "refId": "A"
         }
       ],
@@ -64,7 +64,7 @@
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "prediction_confidence{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}",
+          "expr": "prediction_confidence",
           "legendFormat": "{{class_name}}",
           "refId": "A"
         }
@@ -97,7 +97,7 @@
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 10 },
       "targets": [
         {
-          "expr": "prediction_confidence{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}",
+          "expr": "prediction_confidence",
           "legendFormat": "{{class_name}}",
           "refId": "A"
         }
@@ -122,7 +122,7 @@
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 10 },
       "targets": [
         {
-          "expr": "sum(increase(class_predictions_total{class_name=~\"NORMAL|PNEUMONIA|TUBERCULOSIS\"}[$__range])) by (class_name)",
+          "expr": "class_predictions_total",
           "legendFormat": "{{class_name}}",
           "refId": "A"
         }
@@ -187,6 +187,46 @@
         },
         "tooltip": {
           "mode": "single"
+        }
+      },
+      "datasource": "prometheus"
+    },
+    {
+      "type": "stat",
+      "title": "Total Predictions",
+      "gridPos": { "x": 0, "y": 26, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "prediction_total",
+          "legendFormat": "Total Predictions",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
         }
       },
       "datasource": "prometheus"

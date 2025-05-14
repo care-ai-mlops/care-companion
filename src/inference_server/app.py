@@ -397,7 +397,9 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
         # Update confidence metrics for all classes, not just the predicted one
         for idx, class_name in class_mapping.items():
             class_confidence = float(probabilities[0][idx])
-            PREDICTION_CONFIDENCE.labels(class_name=class_name).set(class_confidence)
+            if class_name == predicted_class:
+                # Only set the confidence for the predicted class
+                PREDICTION_CONFIDENCE.labels(class_name=class_name).set(class_confidence)
 
         # Convert probabilities to dictionary with class labels
         result = {
