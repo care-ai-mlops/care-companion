@@ -243,10 +243,15 @@ for window in ["1h", "6h", "24h"]:
 
 def preprocess_image(image: Image.Image) -> np.ndarray:
     """Preprocess image using NumPy operations"""
+    # Log image details for debugging
+    logger.info(f"Image mode: {image.mode}, Size: {image.size}")
+    
     # Resize image
     image = image.resize((224, 224), Image.Resampling.BILINEAR)
+    
     # Convert to numpy array and normalize to [0, 1]
     img_array = np.array(image, dtype=np.float32) / 255.0
+    logger.info(f"Image array shape: {img_array.shape}, min: {img_array.min()}, max: {img_array.max()}")
     
     # Normalize using ImageNet stats with NumPy operations
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape((1, 1, 3))
@@ -255,6 +260,8 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
     
     # Add batch dimension and ensure correct shape (B, C, H, W)
     img_array = np.transpose(img_array, (2, 0, 1))[np.newaxis, ...]
+    logger.info(f"Final array shape: {img_array.shape}")
+    
     return img_array
 
 def softmax(x: np.ndarray) -> np.ndarray:
@@ -262,7 +269,13 @@ def softmax(x: np.ndarray) -> np.ndarray:
     # Subtract max for numerical stability
     x = x - np.max(x, axis=1, keepdims=True)
     exp_x = np.exp(x)
-    return exp_x / np.sum(exp_x, axis=1, keepdims=True)
+    result = exp_x / np.sum(exp_x, axis=1, keepdims=True)
+    
+    # Log the raw output and softmax result for debugging
+    logger.info(f"Raw model output: {x}")
+    logger.info(f"Softmax result: {result}, sum: {np.sum(result, axis=1)}")
+    
+    return result
 
 @app.get("/")
 async def read_root():
@@ -329,25 +342,34 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
     try:
         # Select model based on toggle
         model_name = "chest_gpu" if use_gpu else "chest_openvino"
+        logger.info(f"Using model: {model_name}")
 
         # Extract image data from request
         image_data = data.get("image")
         if not image_data:
             raise HTTPException(status_code=400, detail="No image data provided")
+        
+        logger.info(f"Received image data of length: {len(image_data)}")
 
         # Convert base64 image data to PIL Image
         try:
             image_bytes = base64.b64decode(image_data)
+            logger.info(f"Decoded base64 data to bytes of length: {len(image_bytes)}")
+            
             image = Image.open(io.BytesIO(image_bytes))
+            logger.info(f"Opened image: mode={image.mode}, size={image.size}")
         except Exception as e:
+            logger.error(f"Error decoding image: {e}")
             raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
 
         # Convert to RGB if grayscale
         if image.mode != 'RGB':
             image = image.convert('RGB')
+            logger.info("Converted image to RGB mode")
 
         # Preprocess image using NumPy
         input_data = preprocess_image(image)
+        logger.info(f"Preprocessed image shape: {input_data.shape}")
 
         # Store features for drift detection
         features = input_data.flatten()  # Flatten the image for drift detection
@@ -364,22 +386,30 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
             httpclient.InferInput("input", input_data.shape, "FP32")
         ]
         inputs[0].set_data_from_numpy(input_data)
+        logger.info(f"Prepared input for Triton with shape: {input_data.shape}")
 
         # Send inference request to Triton and measure inference time
         triton_start_time = time.time()
         try:
+            logger.info(f"Sending request to Triton server for model: {model_name}")
             response = triton_client.infer(
                 model_name=model_name,
                 inputs=inputs
             )
-            TRITON_INFERENCE_LATENCY.observe(time.time() - triton_start_time)
+            triton_time = time.time() - triton_start_time
+            TRITON_INFERENCE_LATENCY.observe(triton_time)
+            logger.info(f"Received response from Triton server in {triton_time:.3f}s")
         except Exception as e:
             TRITON_INFERENCE_ERRORS.inc()
+            logger.error(f"Triton inference failed: {e}")
             raise HTTPException(status_code=503, detail=f"Triton inference failed: {str(e)}")
 
         # Get prediction results and convert to probabilities using NumPy
         output = response.as_numpy("output")
+        logger.info(f"Raw output from model: shape={output.shape}, values={output}")
+        
         probabilities = softmax(output)
+        logger.info(f"Probabilities after softmax: {probabilities}")
 
         # Create class mapping
         class_mapping = {0: "NORMAL", 1: "PNEUMONIA", 2: "TUBERCULOSIS"}
@@ -388,6 +418,7 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
         predicted_class_idx = np.argmax(probabilities[0])
         predicted_class = class_mapping[predicted_class_idx]
         confidence = float(probabilities[0][predicted_class_idx])
+        logger.info(f"Predicted class: {predicted_class} (index {predicted_class_idx}) with confidence: {confidence:.4f}")
 
         # Store prediction data for drift detection (in a non-blocking way)
         data_store.add_prediction(features, predicted_class=predicted_class)
@@ -405,6 +436,7 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
                 for i, prob in enumerate(probabilities[0])
             }
         }
+        logger.info(f"Returning result: {result}")
 
         PREDICTION_LATENCY.observe(time.time() - start_time)
         return JSONResponse(result)
@@ -533,6 +565,11 @@ def create_synthetic_image(mean=0.5, std=0.1):
     img_array = np.clip(img_array, 0, 1)
     # Convert to uint8
     img_array = (img_array * 255).astype(np.uint8)
+    
+    # Log synthetic image stats
+    logger.info(f"Created synthetic image with mean={mean}, std={std}, shape={img_array.shape}")
+    logger.info(f"Synthetic image stats: min={img_array.min()}, max={img_array.max()}, mean={img_array.mean()}")
+    
     # Create PIL Image
     image = Image.fromarray(img_array)
     return image
@@ -676,6 +713,84 @@ async def reset_metrics():
         return {"status": "success", "message": "Metrics reset successfully"}
     except Exception as e:
         logger.error(f"Error resetting metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/test_model")
+async def test_model(pattern_type: str = Query("random", description="Type of test pattern: random, checkerboard, gradient"),
+                    use_gpu: bool = Query(False, description="Use GPU model")):
+    """Test the model with a synthetic image pattern"""
+    try:
+        # Create a synthetic test image based on the pattern type
+        if pattern_type == "checkerboard":
+            # Create a checkerboard pattern
+            img_array = np.zeros((224, 224, 3), dtype=np.uint8)
+            for i in range(0, 224, 2):
+                for j in range(0, 224, 2):
+                    img_array[i:i+1, j:j+1] = 255
+            logger.info("Created checkerboard test pattern")
+        elif pattern_type == "gradient":
+            # Create a gradient pattern
+            x = np.linspace(0, 1, 224)
+            y = np.linspace(0, 1, 224)
+            xx, yy = np.meshgrid(x, y)
+            img_array = np.zeros((224, 224, 3), dtype=np.uint8)
+            img_array[:,:,0] = (xx * 255).astype(np.uint8)  # Red channel
+            img_array[:,:,1] = (yy * 255).astype(np.uint8)  # Green channel
+            img_array[:,:,2] = ((1-xx) * 255).astype(np.uint8)  # Blue channel
+            logger.info("Created gradient test pattern")
+        else:
+            # Default to random noise
+            img_array = np.random.randint(0, 256, (224, 224, 3), dtype=np.uint8)
+            logger.info("Created random noise test pattern")
+        
+        # Convert to PIL Image
+        image = Image.fromarray(img_array)
+        
+        # Preprocess image
+        input_data = preprocess_image(image)
+        
+        # Select model based on toggle
+        model_name = "chest_gpu" if use_gpu else "chest_openvino"
+        
+        # Prepare input for Triton
+        inputs = [
+            httpclient.InferInput("input", input_data.shape, "FP32")
+        ]
+        inputs[0].set_data_from_numpy(input_data)
+        
+        # Send inference request to Triton
+        response = triton_client.infer(
+            model_name=model_name,
+            inputs=inputs
+        )
+        
+        # Get prediction results and convert to probabilities
+        output = response.as_numpy("output")
+        probabilities = softmax(output)
+        
+        # Create class mapping
+        class_mapping = {0: "NORMAL", 1: "PNEUMONIA", 2: "TUBERCULOSIS"}
+        
+        # Get predicted class and confidence
+        predicted_class_idx = np.argmax(probabilities[0])
+        predicted_class = class_mapping[predicted_class_idx]
+        confidence = float(probabilities[0][predicted_class_idx])
+        
+        # Return detailed results
+        return {
+            "pattern_type": pattern_type,
+            "model_used": model_name,
+            "predicted_class": predicted_class,
+            "predicted_class_index": int(predicted_class_idx),
+            "confidence": confidence,
+            "probabilities": {
+                class_mapping[i]: float(prob) 
+                for i, prob in enumerate(probabilities[0])
+            },
+            "raw_output": output.tolist()
+        }
+    except Exception as e:
+        logger.error(f"Test model failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

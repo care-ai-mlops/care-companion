@@ -283,20 +283,9 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, 224, 224);
                         
-                        // Get image data and convert to array
-                        const imageData = ctx.getImageData(0, 0, 224, 224);
-                        const pixels = imageData.data;
-                        
-                        // Convert RGBA to RGB and normalize to [0, 1]
-                        const rgbPixels = [];
-                        for (let i = 0; i < pixels.length; i += 4) {
-                            rgbPixels.push(pixels[i] / 255.0);     // R
-                            rgbPixels.push(pixels[i + 1] / 255.0); // G
-                            rgbPixels.push(pixels[i + 2] / 255.0); // B
-                        }
-                        
-                        // Convert to base64 for sending
-                        const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+                        // Just convert to base64 and send the raw image data
+                        // Let the server handle all preprocessing
+                        const base64Image = canvas.toDataURL('image/png').split(',')[1];
                         resolve(base64Image);
                     };
                     img.onerror = reject;
