@@ -233,6 +233,7 @@ MODEL_ACCURACY = Gauge('model_accuracy', 'Model accuracy over time', ['window'])
 
 # Initialize metrics with default values for all classes
 for class_name in ["NORMAL", "PNEUMONIA", "TUBERCULOSIS"]:
+    # Just initialize the labels for the counter
     CLASS_PREDICTIONS.labels(class_name=class_name)
     PREDICTION_CONFIDENCE.labels(class_name=class_name).set(0)
 
@@ -391,15 +392,11 @@ async def predict_chest(data: Dict[str, Any], use_gpu: bool = Query(False)):
         # Store prediction data for drift detection (in a non-blocking way)
         data_store.add_prediction(features, predicted_class=predicted_class)
 
-        # Record metrics
+        # Record metrics - only increment the counter for the predicted class
         CLASS_PREDICTIONS.labels(class_name=predicted_class).inc()
         
-        # Update confidence metrics for all classes, not just the predicted one
-        for idx, class_name in class_mapping.items():
-            class_confidence = float(probabilities[0][idx])
-            if class_name == predicted_class:
-                # Only set the confidence for the predicted class
-                PREDICTION_CONFIDENCE.labels(class_name=class_name).set(class_confidence)
+        # Update confidence metrics only for the predicted class
+        PREDICTION_CONFIDENCE.labels(class_name=predicted_class).set(confidence)
 
         # Convert probabilities to dictionary with class labels
         result = {
@@ -581,7 +578,7 @@ def simulate_drift_background(duration_minutes: int, drift_rate: float = 0.1):
                 # Calculate drift score based on the current mean shift
                 drift_score = min(abs(current_mean - mean) / drift_rate, 1.0)
                 
-                # Update drift metrics
+                # Update drift metrics directly
                 DRIFT_SCORE.set(drift_score)
                 
                 # If drift score exceeds threshold, increment drift events
@@ -658,6 +655,28 @@ async def get_drift_simulation_status():
         "running": drift_simulation_running,
         "thread_alive": drift_simulation_thread.is_alive() if drift_simulation_thread else False
     }
+
+@app.get("/reset_metrics")
+async def reset_metrics():
+    """Reset all metrics to their initial state"""
+    try:
+        # Re-initialize metrics with default values
+        for class_name in ["NORMAL", "PNEUMONIA", "TUBERCULOSIS"]:
+            PREDICTION_CONFIDENCE.labels(class_name=class_name).set(0)
+        
+        for window in ["1h", "6h", "24h"]:
+            MODEL_ACCURACY.labels(window=window).set(0)
+        
+        DRIFT_SCORE.set(0)
+        DRIFT_THRESHOLD.set(0.3)
+        DRIFT_WINDOW_SIZE.set(50)
+        DRIFT_LAST_UPDATE.set(time.time())
+        
+        logger.info("Metrics reset successfully")
+        return {"status": "success", "message": "Metrics reset successfully"}
+    except Exception as e:
+        logger.error(f"Error resetting metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

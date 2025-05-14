@@ -118,7 +118,7 @@
     },
     {
       "type": "bargauge",
-      "title": "Predicted Class Totals (Over Selected Time Range)",
+      "title": "Predicted Class Totals",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 10 },
       "targets": [
         {
@@ -130,13 +130,23 @@
       "options": {
         "orientation": "horizontal",
         "displayMode": "gradient",
-        "showUnfilled": true
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "min": 0
-        }
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": []
+        },
+        "overrides": []
       },
       "datasource": "prometheus"
     },
